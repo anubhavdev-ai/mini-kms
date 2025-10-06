@@ -187,4 +187,3 @@ By default the UI issues requests as `demo-admin`. Modify `frontend/src/api/clie
 
 ## License
 
-Released for educational use during the hackathon. Customize as needed.
