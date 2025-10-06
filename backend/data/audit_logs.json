@@ -1,0 +1,223 @@
+[
+  {
+    "id": "f9e63691-5651-48d4-a75d-6a5b77a220db",
+    "timestamp": "2025-10-06T13:10:50.488Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_CREATE",
+    "requestId": "4ab8de2a-780e-4951-92d4-c7c6bc50bab8",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "type": "AES256_GCM"
+    },
+    "prevHash": "GENESIS",
+    "hash": "57dbc63bbe739dc5c490c4d50c53978742db563673221343117bd30f4d293da2",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "1e387817-2b58-44b9-a995-5d2851f6a753",
+    "timestamp": "2025-10-06T13:11:17.441Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_CREATE",
+    "requestId": "525fe12c-5ea4-4990-8cd2-2b8ec2d8ffe2",
+    "details": {
+      "error": "Key with this name already exists"
+    },
+    "prevHash": "57dbc63bbe739dc5c490c4d50c53978742db563673221343117bd30f4d293da2",
+    "hash": "72f630ee1393851cf2d0f6c3558913555242130e2022c1df3ba47d6ad4c84640",
+    "status": "FAILURE"
+  },
+  {
+    "id": "95dd88fd-5218-4ed6-89cc-c0a5fbc32db2",
+    "timestamp": "2025-10-06T13:11:38.050Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_ROTATE",
+    "requestId": "28e5076e-21d0-4446-9c41-9b3ac5a618c5",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "newVersion": 2
+    },
+    "prevHash": "72f630ee1393851cf2d0f6c3558913555242130e2022c1df3ba47d6ad4c84640",
+    "hash": "90a39c782fa45148b14384e6fea4abb125b2d2f92720f3f8ed50fc846239690a",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "35ffd8b5-86ce-4a3b-ba8b-97c4ed81dfb1",
+    "timestamp": "2025-10-06T13:12:20.848Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_REVOKE",
+    "requestId": "07f62d37-2dbc-4a45-a52e-906c86a6d1fe",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "version": 1
+    },
+    "prevHash": "90a39c782fa45148b14384e6fea4abb125b2d2f92720f3f8ed50fc846239690a",
+    "hash": "4900344b2f23f3bfaaa34dc7d54c943f66bce48310bfa187595c5c617c1d93d1",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "eca573d8-0e53-4b3f-91c3-4ae0507a712c",
+    "timestamp": "2025-10-06T13:12:22.876Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_REVOKE",
+    "requestId": "e08b76a6-2175-4beb-aba1-1bdadb68e84c",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "version": 2
+    },
+    "prevHash": "4900344b2f23f3bfaaa34dc7d54c943f66bce48310bfa187595c5c617c1d93d1",
+    "hash": "7d6949467c27ff0487841854ea14cc238545279cd018424b6c893cc7d724a366",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "e9042515-0621-4b06-b91d-a8cd270556c3",
+    "timestamp": "2025-10-06T13:12:26.292Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_DISABLE",
+    "requestId": "252716bf-6558-4857-815d-941364fcba6f",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "version": 2
+    },
+    "prevHash": "7d6949467c27ff0487841854ea14cc238545279cd018424b6c893cc7d724a366",
+    "hash": "ba78f11350aaacf0186b54e45285df09734067ca79c775d3b59c307f5b53984c",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "25fed578-2b23-4b4e-88ab-11be8186eeaf",
+    "timestamp": "2025-10-06T13:12:27.107Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_DISABLE",
+    "requestId": "faa16133-4c9b-43c0-9a73-4259b89e79bd",
+    "details": {
+      "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+      "version": 1
+    },
+    "prevHash": "ba78f11350aaacf0186b54e45285df09734067ca79c775d3b59c307f5b53984c",
+    "hash": "4daf50b94338c6adb9533c028dd0a4dd098be12baa9029696ea4030391d61260",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "79beadbc-63d7-4881-91ab-a80bebbac32f",
+    "timestamp": "2025-10-06T13:12:34.666Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_CREATE",
+    "requestId": "646c5b07-b9a2-4009-9e3a-034e1d6039fd",
+    "details": {
+      "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+      "type": "AES256_GCM"
+    },
+    "prevHash": "4daf50b94338c6adb9533c028dd0a4dd098be12baa9029696ea4030391d61260",
+    "hash": "4535d2f036cca34c278c24c433d6023573d99f56ce5160b54e3c2232e8f9d80e",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "666d84ec-4ae9-4255-8fd7-b7017bb5a460",
+    "timestamp": "2025-10-06T13:12:37.872Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "ENCRYPT",
+    "requestId": "c98126f4-50d6-4ebc-b54c-ec34fb6095ed",
+    "details": {
+      "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+      "version": 1
+    },
+    "prevHash": "4535d2f036cca34c278c24c433d6023573d99f56ce5160b54e3c2232e8f9d80e",
+    "hash": "d2da673deaa7c0984966227759e651668607fcbbb8f7d5815e11e407604b949c",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "e96c6e44-0d96-4c57-9b8d-b5e970a9d27d",
+    "timestamp": "2025-10-06T13:12:43.581Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_ROTATE",
+    "requestId": "9ff77fff-90fe-4dac-b735-5829d6535bff",
+    "details": {
+      "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+      "newVersion": 2
+    },
+    "prevHash": "d2da673deaa7c0984966227759e651668607fcbbb8f7d5815e11e407604b949c",
+    "hash": "e3348524f4f533f3c3cde3112f36830ae17e0ef572ad1c479a0e161499b51c52",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "ee0386c6-2de9-40af-82f1-e71df5aad29a",
+    "timestamp": "2025-10-06T13:12:47.198Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "DECRYPT",
+    "requestId": "a3ed4bee-a100-4b7a-9dde-8bdbee54d50e",
+    "details": {
+      "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+      "version": 1
+    },
+    "prevHash": "e3348524f4f533f3c3cde3112f36830ae17e0ef572ad1c479a0e161499b51c52",
+    "hash": "50d3ef24ceacc9784b6751830e8f7de2cd006b26d408c5eb3ae24f029a5bf6a7",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "b9869c4f-0b2a-4f2f-a32c-09bc56552001",
+    "timestamp": "2025-10-06T13:12:57.878Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "KEY_REVOKE",
+    "requestId": "6576a057-18d9-446d-995a-325ff4fa1ef4",
+    "details": {
+      "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+      "version": 1
+    },
+    "prevHash": "50d3ef24ceacc9784b6751830e8f7de2cd006b26d408c5eb3ae24f029a5bf6a7",
+    "hash": "f59d3a65bc9cd5351a9c5f268d751e3e871c2bcc507c68ddd67726d5057b5ae7",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "1a9c3f7d-e6d1-464a-9d44-d136e1c4f018",
+    "timestamp": "2025-10-06T13:13:01.097Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "AUDIT_VERIFY",
+    "requestId": "7a217535-d2b0-43be-a4a3-f4bb689d81b5",
+    "details": {
+      "ok": true
+    },
+    "prevHash": "f59d3a65bc9cd5351a9c5f268d751e3e871c2bcc507c68ddd67726d5057b5ae7",
+    "hash": "90e9d49fa1c6bb723bbb6878aa13f9c10b1a8755cec9fbbf2a7ff8f5d9d5a457",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "c0fdbd9b-67ba-4f8d-8249-9cb15669bd28",
+    "timestamp": "2025-10-06T13:13:19.446Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "AUDIT_VERIFY",
+    "requestId": "46387ae6-d8c8-463d-825d-22f48aade543",
+    "details": {
+      "ok": true
+    },
+    "prevHash": "90e9d49fa1c6bb723bbb6878aa13f9c10b1a8755cec9fbbf2a7ff8f5d9d5a457",
+    "hash": "a73ac214e81611115823ab13a4d2093909680a7f499a36eee1ce9392f7af0ec8",
+    "status": "SUCCESS"
+  },
+  {
+    "id": "81bd57f2-83ae-4335-935e-8ff8abb7b38d",
+    "timestamp": "2025-10-06T13:28:28.218Z",
+    "actor": "demo-admin",
+    "role": "admin",
+    "action": "AUDIT_VERIFY",
+    "requestId": "e68bafb7-dde1-4bd2-b790-5758cf980b17",
+    "details": {
+      "ok": true
+    },
+    "prevHash": "a73ac214e81611115823ab13a4d2093909680a7f499a36eee1ce9392f7af0ec8",
+    "hash": "4e5fc104baa35a45c0e4171f0ac7b70232360c86cae7ea966c9cfaf1c38c977c",
+    "status": "SUCCESS"
+  }
+]

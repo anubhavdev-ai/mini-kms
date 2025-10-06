@@ -1,0 +1,24 @@
+[
+  {
+    "id": "26bf24cd-1537-4183-9100-e3585fe82a01",
+    "name": "test",
+    "type": "AES256_GCM",
+    "purpose": "SIGNING",
+    "state": "DISABLED",
+    "rotationPeriodDays": 30,
+    "gracePeriodDays": 7,
+    "createdAt": "2025-10-06T13:10:50.484Z",
+    "currentVersion": 2
+  },
+  {
+    "id": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+    "name": "demo-payments-1759756354628",
+    "type": "AES256_GCM",
+    "purpose": "ENCRYPTION",
+    "state": "ENABLED",
+    "rotationPeriodDays": 30,
+    "gracePeriodDays": 7,
+    "createdAt": "2025-10-06T13:12:34.665Z",
+    "currentVersion": 2
+  }
+]

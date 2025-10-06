@@ -1,0 +1,81 @@
+[
+  {
+    "id": "52683160-80a8-450c-b062-051e4675c168",
+    "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+    "version": 1,
+    "state": "DISABLED",
+    "createdAt": "2025-10-06T13:10:50.484Z",
+    "wrappedMaterial": {
+      "algorithm": "AES-256-GCM",
+      "iv": "m8ULh0ETYiYsECXB",
+      "ciphertext": "3k2IddLeI3GS2OyMY87FztOPRhKnI1eFOimfc9YkZ8o=",
+      "authTag": "idYptJvsduipPMIHF7kMsQ==",
+      "encryptionContext": {
+        "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+        "version": "1",
+        "type": "AES256_GCM"
+      }
+    },
+    "gracePeriodDays": 7,
+    "notAfter": "2025-10-06T13:12:20.847Z"
+  },
+  {
+    "id": "14388481-f7d8-4e67-b8fe-a1788697a061",
+    "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+    "version": 2,
+    "state": "DISABLED",
+    "createdAt": "2025-10-06T13:11:38.047Z",
+    "wrappedMaterial": {
+      "algorithm": "AES-256-GCM",
+      "iv": "x2iX0+iBTY8FALQd",
+      "ciphertext": "k4buN8eyPcDDCRMQmUqTxphTZdSVvXhoAFFUrEbeHPI=",
+      "authTag": "J+1+riOgjQu92+DhyMFF0w==",
+      "encryptionContext": {
+        "keyId": "26bf24cd-1537-4183-9100-e3585fe82a01",
+        "version": "2",
+        "type": "AES256_GCM"
+      }
+    },
+    "gracePeriodDays": 7,
+    "notAfter": "2025-10-06T13:12:22.874Z"
+  },
+  {
+    "id": "4d429b8c-1af1-4f63-84d4-4d01c666ffa5",
+    "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+    "version": 1,
+    "state": "REVOKED",
+    "createdAt": "2025-10-06T13:12:34.665Z",
+    "wrappedMaterial": {
+      "algorithm": "AES-256-GCM",
+      "iv": "cShyiwa2t7cEsFFN",
+      "ciphertext": "86COET5UcQhSNLZkbFYwnqlNqFd8ciqek/ym0445cmc=",
+      "authTag": "FrnX1PeLeNQm6cb14yd2KA==",
+      "encryptionContext": {
+        "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+        "version": "1",
+        "type": "AES256_GCM"
+      }
+    },
+    "gracePeriodDays": 7,
+    "notAfter": "2025-10-06T13:12:57.871Z"
+  },
+  {
+    "id": "c7ea590b-8888-4990-b9ab-aa37d45db62e",
+    "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+    "version": 2,
+    "state": "ENABLED",
+    "createdAt": "2025-10-06T13:12:43.577Z",
+    "wrappedMaterial": {
+      "algorithm": "AES-256-GCM",
+      "iv": "A+Et+/8xDi0D32by",
+      "ciphertext": "T/eZ6gkXvAh23cYCYx1kXk2Dk65+GLxC2P1HPa4MAVc=",
+      "authTag": "a7G8mcTNPHrpOsD/R7RYeg==",
+      "encryptionContext": {
+        "keyId": "be3d56dc-69c8-416d-8570-70556ba4b8ce",
+        "version": "2",
+        "type": "AES256_GCM"
+      }
+    },
+    "gracePeriodDays": 7
+  }
+]
