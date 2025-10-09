@@ -8,7 +8,16 @@ import WizardPage from './pages/WizardPage';
 import AuditPage from './pages/AuditPage';
 import GrantsPage from './pages/GrantsPage';
 import { ActorProvider, useActor, type Role } from './actorContext';
-import { Fade as Hamburger } from 'hamburger-react'
+import { Fade as Hamburger } from 'hamburger-react';
+import { GoHome } from "react-icons/go";
+import { LiaKeySolid } from "react-icons/lia";
+import { TbSettingsCog } from "react-icons/tb";
+import { TbChecklist } from "react-icons/tb";
+import { SlPeople } from "react-icons/sl";
+import DashboardLogo from './pages/Images/DashboardLogo.svg'
+
+
+
 
 interface ActorToolbarProps {
   isOpen: boolean;
@@ -75,13 +84,29 @@ export default function App() {
         <div className="relative app-shell lg:grid justify-center items-center lg:items-start">
       {/* Desktop sidebar */}
       <aside className="sidebar hidden lg:flex lg:flex-col">
-        <h1>Mini KMS</h1>
+        <h1 className='font-bold gap-1 text-2xl mb-4 pl-1 flex justify-start items-center'>
+          <div className=''><img src={DashboardLogo} alt='logo'/></div>
+          Keyforge</h1>
         <nav>
-          <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/keys">Keys</NavLink>
-          <NavLink to="/wizard">Workflow Wizard</NavLink>
-          <NavLink to="/audit">Audit Trail</NavLink>
-          <NavLink to="/grants">Grants</NavLink>
+          <NavLink to="/" end className="flex gap-2">
+          <div className='w-6 h-6 flex justify-center items-center'><GoHome className='w-full h-full object-cover' /></div>
+          Dashboard</NavLink>
+
+          <NavLink to="/keys" className="flex gap-2">
+          <div className='w-6 h-6 flex justify-center items-center'><LiaKeySolid className='w-full h-full object-cover' /></div>
+          Keys</NavLink>
+
+          <NavLink to="/wizard" className="flex gap-2">
+          <div className='w-6 h-6 flex justify-center items-center'><TbSettingsCog className='w-full h-full object-cover' /></div>
+          Workflow Wizard</NavLink>
+
+          <NavLink to="/audit" className="flex gap-2">
+          <div className='w-6 h-6 flex justify-center items-center'><TbChecklist className='w-full h-full object-cover' /></div>
+          Audit Trail</NavLink>
+
+          <NavLink to="/grants" className="flex gap-2">
+          <div className='w-5 h-5 flex justify-center items-center'><SlPeople className='w-full h-full object-cover' /></div>
+          Grants</NavLink>
         </nav>
       </aside>
 

@@ -20,10 +20,7 @@ export default function AuditPage({ isOpen, setOpen }: AuditPageProps) {
 
   return (
     <section className="panel ">
-       {/* <div className='z-20 block lg:hidden absolute '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div> */}
-      <div className='pt-12'></div>
+      <div className='pt-3'></div>
       <div className="flex-between">
         <h2>Audit Trail</h2>
         <button className="button" onClick={runVerify} disabled={verifyMutation.isLoading}>

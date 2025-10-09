@@ -159,14 +159,11 @@ export default function WizardPage({ isOpen, setOpen }: WizardPageProps) {
 
   return (
     <div className="panel">
-       {/* <div className='z-80 block lg:hidden absolute  '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div> */}
-      <div className='pt-12'></div>
+      <div className='pt-4 sm:pt-3 lg:pt-3'></div>
 
-      <h2>Lifecycle Wizard</h2>
-      <p>
-        Follow the full lifecycle: <strong>generate → encrypt → rotate → decrypt → revoke → verify logs</strong>.
+      <span className='mb-2 border-1 border-blue-500 border-dashed bg-[#3b82f699]/20 px-2 py-1 rounded-lg'>Lifecycle Wizard</span>
+      <p className='mb-4 mt-4 pl-1'>
+        Follow the full Lifecycle: <strong>Generate → Encrypt → Rotate → Decrypt → Revoke → Verify logs</strong>.
       </p>
       <div className="wizard">
         {actions.map((step) => {
