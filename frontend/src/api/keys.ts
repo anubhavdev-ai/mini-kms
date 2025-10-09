@@ -54,6 +54,7 @@ export interface CreateKeyInput {
   purpose: 'ENCRYPTION' | 'SIGNING';
   rotationPeriodDays?: number;
   gracePeriodDays?: number;
+  metadata?: Record<string, unknown>;
 }
 
 export function useCreateKey() {

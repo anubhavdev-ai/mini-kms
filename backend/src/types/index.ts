@@ -47,7 +47,8 @@ export type GrantOperation =
   | 'verify'
   | 'rotate'
   | 'revoke'
-  | 'read';
+  | 'read'
+  | 'create';
 
 export interface GrantRecord {
   id: string;

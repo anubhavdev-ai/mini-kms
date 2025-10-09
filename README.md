@@ -16,6 +16,7 @@ The stack includes a TypeScript/Express API with optional AWS KMS wrapping, MySQ
 - **Fine-grained grants**: per principal/key allow-lists for encrypt/decrypt/rotate/revoke/sign/verify/read.
 - **Cryptographic APIs**: AEAD encrypt/decrypt, RSA sign/verify, RSA encrypt/decrypt.
 - **Persistence**: MySQL metadata store with envelope-encrypted key material and hash-chained audit log.
+- **Operational intelligence**: aggregated metrics for key rotation hygiene, audit health, and crypto usage surfaced via API.
 - **Demo UI**: React admin console with dashboard, key list, grant editor, audit viewer, and a guided lifecycle wizard.
 
 ---
@@ -101,7 +102,7 @@ Authenticated via simple headers (for demo):
 
 ### Key management
 
-- `POST /v1/keys` — create logical key with initial version.
+- `POST /v1/keys` — create logical key with initial version (admins or principals holding a `create` grant; creators automatically receive manage grants for the new key).
 - `GET /v1/keys` — list keys (metadata only).
 - `GET /v1/keys/:id` — detail including versions.
 - `POST /v1/keys/:id/rotate` — create new version, disable previous.
@@ -119,6 +120,7 @@ Authenticated via simple headers (for demo):
 - `POST /v1/grants` / `GET /v1/grants` — manage principal grants.
 - `GET /v1/audit` — hash-chained audit trail.
 - `POST /v1/audit/verify` — recompute chain integrity.
+- `GET /v1/ops/metrics` — operational insights (key counts, rotation alerts, audit posture, usage trends).
 - `GET /v1/healthz` — basic health ping (also logged).
 
 All operations are recorded with `requestId`, actor, status, and appended hash chain.
@@ -186,4 +188,3 @@ By default the UI issues requests as `demo-admin`. Modify `frontend/src/api/clie
 ---
 
 ## License
-

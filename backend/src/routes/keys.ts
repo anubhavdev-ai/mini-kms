@@ -4,6 +4,7 @@ import { AuditService } from '../services/auditService.js';
 import { GrantService } from '../services/grantService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { extractActor } from '../utils/http.js';
+import type { GrantOperation } from '../types/index.js';
 
 export function createKeyRouter(
   keyService: KeyService,
@@ -17,14 +18,46 @@ export function createKeyRouter(
     asyncHandler(async (req, res) => {
       const actor = extractActor(req);
       if (actor.role !== 'admin') {
-        res.status(403).json({ error: 'Only admins can create keys' });
-        return;
+        try {
+          await grantService.ensureAuthorized(actor, 'create', '*');
+        } catch (error) {
+          res.status(403).json({ error: (error as Error).message });
+          return;
+        }
       }
       try {
-        const created = await keyService.createKey(req.body);
+        const keyInput = {
+          ...req.body,
+          metadata: {
+            ...(req.body?.metadata ?? {}),
+            owner: req.body?.metadata?.owner ?? actor.principal,
+          },
+        };
+
+        const created = await keyService.createKey(keyInput);
+
+        if (actor.role !== 'admin') {
+          const manageOps: GrantOperation[] = [
+            'read',
+            'encrypt',
+            'decrypt',
+            'sign',
+            'verify',
+            'rotate',
+            'revoke',
+          ];
+          await grantService.upsertByPrincipal(actor.principal, {
+            role: actor.role,
+            keyId: created.id,
+            allowedOps: manageOps,
+            conditions: undefined,
+          });
+        }
+
         await auditService.record(actor, 'KEY_CREATE', 'SUCCESS', {
           keyId: created.id,
           type: created.type,
+          owner: created.metadata?.owner ?? actor.principal,
         });
         res.status(201).json(created);
       } catch (error) {
