@@ -7,6 +7,7 @@ import {
   useRotateKey,
   useRevokeVersion,
 } from '../api/keys';
+import { useActor } from '../actorContext';
 
 const defaultForm = {
   name: '',
@@ -25,6 +26,7 @@ export default function KeysPage() {
   const rotateMutation = useRotateKey(selectedKeyId ?? '');
   const disableMutation = useDisableVersion(selectedKeyId ?? '');
   const revokeMutation = useRevokeVersion(selectedKeyId ?? '');
+  const { actor } = useActor();
 
   const sortedKeys = useMemo(() => {
     return (keys ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -38,6 +40,9 @@ export default function KeysPage() {
       purpose: form.purpose,
       rotationPeriodDays: form.rotationPeriodDays,
       gracePeriodDays: form.gracePeriodDays,
+      metadata: {
+        owner: actor.principal,
+      },
     });
     setForm(defaultForm);
   };
@@ -57,6 +62,7 @@ export default function KeysPage() {
               <th>State</th>
               <th>Current Version</th>
               <th>Rotation</th>
+              <th>Owner</th>
             </tr>
           </thead>
           <tbody>
@@ -73,6 +79,7 @@ export default function KeysPage() {
                 </td>
                 <td>{key.currentVersion}</td>
                 <td>{key.rotationPeriodDays ? `${key.rotationPeriodDays} days` : 'Manual'}</td>
+                <td>{(key.metadata?.owner as string) ?? '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -144,6 +151,10 @@ export default function KeysPage() {
           <button className="button" type="submit" disabled={createMutation.isLoading}>
             {createMutation.isLoading ? 'Creating…' : 'Create Key'}
           </button>
+          <span style={{ fontSize: 12, color: 'rgba(226,232,240,0.7)' }}>
+            New keys are tagged with <strong>{actor.principal || 'unknown'}</strong> as owner and manage grants are
+            auto-assigned.
+          </span>
           {createMutation.error ? <span style={{ color: '#f87171' }}>{(createMutation.error as Error).message}</span> : null}
         </form>
       </section>
@@ -160,6 +171,7 @@ export default function KeysPage() {
           </div>
           <p>Purpose: {selectedKey.data.purpose}</p>
           <p>State: {selectedKey.data.state}</p>
+          <p>Owner: {(selectedKey.data.metadata?.owner as string) ?? '—'}</p>
           <h3>Versions</h3>
           <table className="table">
             <thead>

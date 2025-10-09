@@ -84,6 +84,29 @@ type AuditRow = RowDataPacket & {
   status: string;
 };
 
+type KeyStateCountRow = RowDataPacket & {
+  state: string;
+  total: number;
+};
+
+type CountRow = RowDataPacket & {
+  total: number;
+};
+
+type RotationCandidateRow = RowDataPacket & {
+  id: string;
+  name: string;
+  rotation_period_days: number | null;
+  grace_period_days: number | null;
+  last_rotated_at: Date | null;
+};
+
+type AuditActionCountRow = RowDataPacket & {
+  action: string;
+  status: string;
+  total: number;
+};
+
 function mapKey(row: KeyRow): KeyRecord {
   return {
     id: row.id,
@@ -364,6 +387,79 @@ export class StorageService {
   async getLastAuditRecord(): Promise<AuditRecord | undefined> {
     const [rows] = await pool.query<AuditRow[]>(
       'SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 1'
+    );
+    return rows[0] ? mapAudit(rows[0]) : undefined;
+  }
+
+  async countKeysByState(): Promise<Record<string, number>> {
+    const [rows] = await pool.query<KeyStateCountRow[]>(
+      'SELECT state, COUNT(*) as total FROM `keys` GROUP BY state'
+    );
+    return rows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.state] = Number(row.total);
+      return acc;
+    }, {});
+  }
+
+  async countKeyVersions(): Promise<number> {
+    const [rows] = await pool.query<CountRow[]>(
+      'SELECT COUNT(*) as total FROM `key_versions`'
+    );
+    return rows[0] ? Number(rows[0].total) : 0;
+  }
+
+  async findRotationCandidates(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      rotationPeriodDays: number;
+      gracePeriodDays?: number;
+      lastRotatedAt?: string;
+    }>
+  > {
+    const [rows] = await pool.query<RotationCandidateRow[]>(
+      `SELECT k.id,
+              k.name,
+              k.rotation_period_days,
+              k.grace_period_days,
+              MAX(v.created_at) AS last_rotated_at
+         FROM \`keys\` k
+         JOIN key_versions v ON v.key_id = k.id
+        GROUP BY k.id, k.name, k.rotation_period_days, k.grace_period_days`
+    );
+
+    return rows
+      .filter((row) => row.rotation_period_days !== null)
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        rotationPeriodDays: row.rotation_period_days ?? 0,
+        gracePeriodDays: row.grace_period_days ?? undefined,
+        lastRotatedAt: row.last_rotated_at ? row.last_rotated_at.toISOString() : undefined,
+      }));
+  }
+
+  async countAuditActionsSince(since: Date): Promise<
+    Array<{
+      action: string;
+      status: string;
+      total: number;
+    }>
+  > {
+    const [rows] = await pool.query<AuditActionCountRow[]>(
+      'SELECT action, status, COUNT(*) as total FROM audit_logs WHERE timestamp >= ? GROUP BY action, status',
+      [toMysqlDateTime(since)]
+    );
+    return rows.map((row) => ({
+      action: row.action,
+      status: row.status,
+      total: Number(row.total),
+    }));
+  }
+
+  async getLastAuditVerification(): Promise<AuditRecord | undefined> {
+    const [rows] = await pool.query<AuditRow[]>(
+      "SELECT * FROM audit_logs WHERE action = 'AUDIT_VERIFY' ORDER BY timestamp DESC LIMIT 1"
     );
     return rows[0] ? mapAudit(rows[0]) : undefined;
   }

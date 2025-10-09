@@ -16,6 +16,8 @@ import { createAuditRouter } from './routes/audit.js';
 import { createHealthRouter } from './routes/health.js';
 import { startRotationScheduler } from './services/scheduler.js';
 import { attachRequestId } from './utils/http.js';
+import { OpsService } from './services/opsService.js';
+import { createOpsRouter } from './routes/ops.js';
 
 export function createApp() {
   const app = express();
@@ -26,6 +28,7 @@ export function createApp() {
   const auditService = new AuditService(storage);
   const grantService = new GrantService(storage);
   const cryptoService = new CryptoService(keyService, envelope);
+  const opsService = new OpsService(storage);
 
   startRotationScheduler(keyService, auditService);
 
@@ -40,6 +43,7 @@ export function createApp() {
   app.use('/v1/crypto', createCryptoRouter(cryptoService, auditService, grantService));
   app.use('/v1/grants', createGrantRouter(grantService, auditService));
   app.use('/v1/audit', createAuditRouter(auditService));
+  app.use('/v1/ops', createOpsRouter(opsService, grantService));
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(err);
