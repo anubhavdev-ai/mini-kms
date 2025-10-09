@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useGrants, useUpsertGrant } from '../api/grants';
+import { Fade as Hamburger } from 'hamburger-react'
 
 const defaultGrant = {
   principal: '',
@@ -9,7 +10,7 @@ const defaultGrant = {
   conditions: '{}',
 };
 
-export default function GrantsPage() {
+export default function GrantsPage({ isOpen, setOpen }) {
   const { data } = useGrants();
   const upsert = useUpsertGrant();
   const [form, setForm] = useState(defaultGrant);
@@ -37,6 +38,9 @@ export default function GrantsPage() {
 
   return (
     <div className="grid">
+       <div className='z-20 block lg:hidden '>
+        <Hamburger toggled={isOpen} toggle={setOpen} />
+      </div>
       <section className="panel">
         <h2>Grants</h2>
         <table className="table">

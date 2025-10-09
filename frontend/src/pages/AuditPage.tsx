@@ -1,6 +1,14 @@
 import { useAuditLog, useAuditVerify } from '../api/audit';
+import { Fade as Hamburger } from 'hamburger-react'
 
-export default function AuditPage() {
+
+interface AuditPageProps {
+  isOpen: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function AuditPage({ isOpen, setOpen }: AuditPageProps) {
+
   const { data, isLoading, refetch } = useAuditLog();
   const verifyMutation = useAuditVerify();
 
@@ -11,7 +19,11 @@ export default function AuditPage() {
   };
 
   return (
-    <section className="panel">
+    <section className="panel ">
+       <div className='z-20 block lg:hidden absolute '>
+        <Hamburger toggled={isOpen} toggle={setOpen} />
+      </div>
+      <div className='pt-12'></div>
       <div className="flex-between">
         <h2>Audit Trail</h2>
         <button className="button" onClick={runVerify} disabled={verifyMutation.isLoading}>
