@@ -45,14 +45,15 @@ export default function AuditPage({ isOpen: _isOpen, setOpen: _setOpen }: AuditP
   };
 
   return (
-    <section className="panel ">
-      <div className='pt-12'></div>
-      <div className="flex-between">
+    <section className="panel w-full overflow-scroll ">
+      <div className='pt-4'></div>
+      <div className="flex-between fixed gap-10 lg:gap-0 w-fit lg:w-full lg:relative">
         <h2>Audit Trail</h2>
         <button className="button" onClick={runVerify} disabled={verifyMutation.isLoading}>
           {verifyMutation.isLoading ? 'Checking…' : 'Verify Integrity'}
         </button>
       </div>
+      <div className='mb-12 lg:mb-0'></div>
       {verifyMutation.data ? (
         <p>
           Integrity: {verifyMutation.data.ok ? 'OK' : `Broken at ${verifyMutation.data.brokenAt ?? 'unknown'}`}

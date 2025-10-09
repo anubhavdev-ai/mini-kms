@@ -57,7 +57,7 @@ export default function KeysPage({ isOpen: _isOpen, setOpen: _setOpen }: KeysPag
 
   return (
     <div className="grid">
-      <section className="panel">
+      <section className="panel w-full overflow-scroll">
         <div className="flex-between">
           <h2>Keys</h2>
           <span>{isLoading ? 'Loading…' : `${sortedKeys.length} keys`}</span>

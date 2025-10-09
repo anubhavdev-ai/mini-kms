@@ -7,7 +7,6 @@ import WizardPage from './pages/WizardPage';
 import AuditPage from './pages/AuditPage';
 import GrantsPage from './pages/GrantsPage';
 import { NavLink } from 'react-router-dom';
-// import { ActorProvider, useActor, type Role } from './actorContext';
 import { GoHome } from "react-icons/go";
 import { LiaKeySolid } from "react-icons/lia";
 import { TbSettingsCog } from "react-icons/tb";
