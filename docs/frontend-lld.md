@@ -1,116 +1,136 @@
-# Mini KMS Frontend Low-Level Design
+# Mini KMS Frontend — design notes for the console
 
-## 1. Goals & Scope
-- Provide an admin-oriented console to exercise the KMS lifecycle: generate → use → rotate → revoke → verify.
-- Offer visibility into key inventory, versions, grants, and audit logs.
-- Deliver a guided workflow wizard for demos and onboarding.
-- Expose configuration for principal/role headers to impersonate different actors.
-- Serve as a control-plane companion for subsystems like the Voice-Based Financial Scam Detector by allowing operators to manage crypto assets backing the detector service.
+The frontend is a lightweight companion to the API. It exists to tell the story of a key’s life cycle in a way that’s easy to demo, support, and extend. Here’s how it works under the hood.
 
-## 2. Technology Stack
-- **Framework**: React 18 with Vite bundler.
-- **Routing**: React Router v6.
-- **Data fetching**: @tanstack/react-query for caching, retries, polling.
-- **HTTP client**: Axios with configurable base URL and default headers derived from Vite env.
-- **Styling**: Custom CSS classes (`styles.css`) targeting a dark-themed admin shell.
+---
 
-## 3. Application Structure
-```
+## 1. Goals
+
+- Give admins, app teams, and auditors a shared window into keys, versions, usage, grants, and audits.
+- Offer a guided wizard that walks newcomers through “generate → encrypt → rotate → decrypt → revoke → verify”.
+- Let operators impersonate different principals/roles without logging out.
+- Surface operational signals (rotation alerts, audit health, usage stats) so you can spot trouble early.
+- Leave plenty of hooks for future features (e.g., voice-scam detector dashboards).
+
+---
+
+## 2. Tech stack
+
+- **Framework:** React 18 + Vite.
+- **Routing:** React Router v6.
+- **Data:** @tanstack/react-query for fetching, caching, polling, retries.
+- **HTTP:** Axios with a shared client that injects `x-principal` / `x-role` headers.
+- **Styling:** Dark, utility-like CSS in `styles.css`.
+
+---
+
+## 3. Directory tour
+
 src/
-  App.tsx              # Layout + route composition
-  main.tsx             # React bootstrap + QueryClientProvider
-  styles.css           # Global theme
+  main.tsx            # Bootstraps React + QueryClientProvider
+  App.tsx             # Layout, navigation, actor context provider
+  styles.css          # Global theme
+  actorContext.tsx    # Principal/role state shared across the app
+
   api/
-    client.ts          # Axios instance
-    keys.ts            # Hooks for key CRUD & rotation
-    crypto.ts          # Hooks for encrypt/decrypt/sign/verify
-    audit.ts           # Hooks for audit log & integrity check
-    grants.ts          # Hooks for grant CRUD
+    client.ts         # Axios instance, setter/getter for actor headers
+    keys.ts           # Queries + mutations for key lifecycle
+    crypto.ts         # Encrypt/decrypt/sign/verify hooks
+    audit.ts          # Audit log + verification hook
+    grants.ts         # Grant CRUD hook
+    ops.ts            # Operational metrics hook
+
   pages/
-    DashboardPage.tsx  # Summary metrics + recent audits
-    KeysPage.tsx       # Key list, creation form, version controls
-    WizardPage.tsx     # Guided lifecycle workflow
-    AuditPage.tsx      # Audit viewer with verify action
-    GrantsPage.tsx     # Grant listing + editor
-  components/          # (future) shared widgets; not populated yet
-```
+    DashboardPage.tsx # Metrics dashboard + rotation alerts + audits
+    KeysPage.tsx      # Key table, create form, version controls
+    WizardPage.tsx    # Step-by-step lifecycle walkthrough
+    AuditPage.tsx     # Log viewer + integrity button
+    GrantsPage.tsx    # Grant list/editor
 
-## 4. Data Access Layer
-### 4.1 Axios Client (`api/client.ts`)
-- Reads `VITE_API_BASE_URL`, `VITE_DEFAULT_PRINCIPAL`, `VITE_DEFAULT_ROLE` from runtime env.
-- Interceptor injects default headers if caller hasn’t set `x-principal` / `x-role`.
-- Designed to simulate different caller personas (admin/app/auditor) without auth forms.
+React Query holds almost all shared state; components keep just enough local state for forms and selections.
 
-### 4.2 React Query Hooks
-- Each API module exports `useQuery` / `useMutation` hooks that wrap axios calls and manage cache invalidation.
-- Polling windows:
-  - Keys: refetch every 10s
-  - Audit log: refetch every 5s for near-real-time feedback
-- Mutations trigger invalidation to ensure UI reflects server state post-operation.
+---
 
-## 5. Page Flows
+## 4. Data access patterns
 
-### 5.1 `App.tsx`
-- Defines sidebar navigation and main content area.
-- Routes map to page components; default route `/` renders dashboard.
+### 4.1 Axios client
 
-### 5.2 DashboardPage
-- Aggregates counts (total/enabled/revoked) from `useKeys`.
-- Displays last few audit events for situational awareness.
-- Intended as launchpad for monitoring key health and scheduled activities.
+- Base URL comes from `VITE_API_BASE_URL` (defaults to `/v1`).
+- `setActor` / `getActor` let the toolbar mutate the principal/role; headers are injected via request interceptor.
+- Headers fall back to env defaults so the UI works out of the box (`demo-admin` / `admin`).
 
-### 5.3 KeysPage
-- Combines key inventory table with creation form and version controls.
-- Clicking a row loads detailed key info (versions) via `useKey`.
-- Supports rotate/disable/revoke operations through dedicated mutations.
-- Form defaults align with backend defaults (30-day rotation, 7-day grace).
+### 4.2 React Query hooks
 
-### 5.4 WizardPage
-- Implements canonical workflow to satisfy deliverable requirement: **generate → encrypt → rotate → decrypt → revoke → verify**.
-- Maintains per-step statuses (`idle` | `running` | `success` | `error`) and messages.
-- Captures ciphertext bundle for display and reuse during decrypt/revoke steps.
-- After verification, triggers audit refetch to update UI with integrity check result.
-- Extensible: future wizard steps can include voice-scam detector readiness checks (e.g., provisioning keys for ML pipeline).
+- Keys and audit logs poll periodically (10s and 5s respectively) to keep the UI fresh.
+- Mutations invalidate caches so tables update automatically.
+- Errors bubble up to the components; pages display inline error states/messages where it matters (wizard, forms).
 
-### 5.5 AuditPage
-- Tabular audit log viewer with timestamp, action, hash snippet.
-- “Verify Integrity” button invokes `/v1/audit/verify` and surfaces results.
-- Designed for auditors or SOC engineers to quickly validate tamper-resistance.
+---
 
-### 5.6 GrantsPage
-- Lists existing grants with principal, role, key scope, allowed ops, created timestamp.
-- Provides form for admins to upsert grants via comma-separated operations and JSON conditions.
-- Conditions stored as raw JSON for forward compatibility with contextual policies.
+## 5. Page behaviour
 
-## 6. State & UI Management
-- Global state kept minimal; React Query handles caching & background refresh.
-- Local component state used for forms, wizard status, and selection (e.g., `selectedKeyId`).
-- UI uses semantic CSS utility classes for consistent styling across sections.
-- Buttons display activity states (e.g., “Creating…”) based on mutation loading flags.
+### Dashboard
 
-## 7. Security & Compliance Considerations
-- No secrets stored in browser; authentication simulated via headers for demo.
-- Encourage deployment behind authenticated reverse proxy (e.g., OIDC) to map identities to principals.
-- Avoids localStorage for tokens; QueryClient in-memory only.
-- Provides visibility into audit hashes, promoting tamper evidence for compliance.
-- Encourages operators to rotate keys and verify logs regularly via UI cues.
-- For the voice-based scam detector, UI can be extended with dedicated dashboards surfacing key/material health metrics that service depends on.
+- Combines `/v1/ops/metrics` with the audit log tail and key inventory.
+- Shows rotation alerts, audit verification status, and usage counts for the last 24h / 30d.
+- Provides a quick snapshot of key hygiene.
 
-## 8. Environment & Build
-- `.env.example` documents expected variables; actual `.env` should mirror but remain untracked.
-- Vite dev server proxies `/v1` calls to backend (configured in `vite.config.ts`).
-- Build flow: `npm run build` → static assets for deployment.
+### Keys
 
-## 9. Extensibility Roadmap
-- Component library integration (e.g., shadcn/ui) for richer UX.
-- Role-awareness in UI (toggle between admin/app/auditor personas).
-- Add charts for rotation cadence and audit results.
-- Dedicated page for Problem Statement 2 to manage ML models, with controls to rotate keys used by voice analytics (leveraging existing API hooks).
-- Internationalization support for broader deployments.
+- Lists keys with state, current version, rotation policy, and owner metadata.
+- Selecting a row loads detailed version history.
+- Create form includes owner tagging (current actor) and surfaces backend defaults (30-day rotation, 7-day grace).
+- Rotate/disable/revoke buttons map to the respective API mutations.
 
-## 10. Testing Strategy (Planned)
-- Component tests using React Testing Library for forms and wizard.
-- Cypress end-to-end script to execute full lifecycle workflow.
-- Visual regression snapshots for critical pages.
+### Lifecycle wizard
 
-This design ensures the frontend cleanly orchestrates lifecycle operations, surfaces audit assurance, and remains ready to expand for adjacent solutions like the voice-based financial scam detector.
+- Orchestrates the canonical workflow: create → encrypt → rotate → decrypt → revoke → verify.
+- Persists intermediate outputs (ciphertext bundle) within component state.
+- Each step shows live status (`idle`, `running`, `success`, `error`) and surfaces the API responses for transparency.
+
+### Audit
+
+- Displays the latest audit entries with action, status, hash snippet, and timestamp.
+- “Verify integrity” button calls `/v1/audit/verify` and prints the result inline.
+
+### Grants
+
+- Reads grants via `useGrants` and displays principal, role, key scope (`*` supported), operations, timestamp.
+- Form lets admins upsert grants with comma-separated operations and JSON conditions.
+
+---
+
+## 6. Actor context
+
+- `actorContext.tsx` stores the current principal/role, syncs them to localStorage, and pushes changes into the Axios client.
+- The toolbar in `App.tsx` lets users edit these values; everything else reacts automatically.
+- Makes it trivial to role-play an auditor, app client, or admin in a single session.
+
+---
+
+## 7. Security & UX considerations
+
+- No auth tokens are stored; identity is simulated via headers for demo purposes. Production deployments should sit behind an auth proxy that maps real identities to principals.
+- React Query data lives in memory only; no persistence beyond the actor context.
+- UI nudges (public badges, rotation alerts) encourage healthy lifecycle behaviour.
+- Audit hashes are surfaced prominently to reinforce tamper-evidence.
+
+---
+
+## 8. Build & deploy
+
+- Dev server: `npm run dev` (Vite) with proxy to `/v1`.
+- Production build: `npm run build` → static assets in `dist/`.
+- Environment variables go through Vite’s `import.meta.env` pipeline; never bake secrets into the client bundle.
+
+---
+
+## 9. Room to grow
+
+- Layer in a component library (e.g., shadcn/ui) for richer visual affordances.
+- Add charts and alert banners to the dashboard (e.g., rotation SLA breaches).
+- Build a dedicated view for ML/scam-detector operators that bundles relevant keys, usage, and health metrics.
+- Wire up Cypress tests for the lifecycle wizard and grants flow.
+- Internationalise strings for broader deployments.
+
+Use this blueprint when you extend or refactor the console so it stays friendly, expressive, and aligned with the backend.***
