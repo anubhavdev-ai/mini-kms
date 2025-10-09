@@ -1,4 +1,5 @@
 import { FormEvent, useMemo, useState } from 'react';
+import { Fade as Hamburger } from 'hamburger-react'
 import {
   useCreateKey,
   useDisableVersion,
@@ -17,7 +18,12 @@ const defaultForm = {
   gracePeriodDays: 7,
 };
 
-export default function KeysPage() {
+interface KeysPageProps {
+  isOpen: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
   const { data: keys, isLoading } = useKeys();
@@ -49,6 +55,9 @@ export default function KeysPage() {
 
   return (
     <div className="grid">
+      {/* <div className='z-20 block lg:hidden '>
+        <Hamburger toggled={isOpen} toggle={setOpen} />
+      </div> */}
       <section className="panel">
         <div className="flex-between">
           <h2>Keys</h2>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiClient } from '../api/client';
 import { useAuditLog } from '../api/audit';
+import { Fade as Hamburger } from 'hamburger-react'
 
 interface StepState {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -12,7 +13,12 @@ const demoPayload = {
   aad: { purpose: 'demo' },
 };
 
-export default function WizardPage() {
+interface WizardPageProps {
+  isOpen: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export default function WizardPage({ isOpen, setOpen }: WizardPageProps) {
   const [keyId, setKeyId] = useState<string | null>(null);
   const [cipherBundle, setCipherBundle] = useState<any>(null);
   const [resultMessages, setResultMessages] = useState<string[]>([]);
@@ -23,7 +29,6 @@ export default function WizardPage() {
     setSteps((prev) => ({
       ...prev,
       [step]: {
-        status: prev[step]?.status ?? 'idle',
         ...prev[step],
         ...patch,
       },
@@ -154,6 +159,11 @@ export default function WizardPage() {
 
   return (
     <div className="panel">
+       {/* <div className='z-80 block lg:hidden absolute  '>
+        <Hamburger toggled={isOpen} toggle={setOpen} />
+      </div> */}
+      <div className='pt-12'></div>
+
       <h2>Lifecycle Wizard</h2>
       <p>
         Follow the full lifecycle: <strong>generate → encrypt → rotate → decrypt → revoke → verify logs</strong>.

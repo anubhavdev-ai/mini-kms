@@ -1,9 +1,15 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useKeys } from '../api/keys';
 import { useAuditLog } from '../api/audit';
 import { useOperationalMetrics } from '../api/ops';
-import { useKeys } from '../api/keys';
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  isOpen: boolean;
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+
+export default function DashboardPage({ isOpen, setOpen }: DashboardPageProps) {
   const { data: keys } = useKeys();
   const { data: audit } = useAuditLog();
   const { data: metrics } = useOperationalMetrics();
@@ -30,8 +36,11 @@ export default function DashboardPage() {
   }, [keys, audit, metrics]);
 
   return (
-    <div className="grid">
-      <section className="panel">
+    <div className="grid ">
+      {/* <div className='z-20 block lg:hidden '>
+        <Hamburger toggled={isOpen} toggle={setOpen} />
+      </div> */}
+      <section className="panel ">
         <h2>At a glance</h2>
         <div className="grid two">
           <div>
