@@ -40,6 +40,14 @@ export interface KeyRecord {
   currentVersion: number;
 }
 
+export interface UserRecord {
+  id: string;
+  email: string;
+  role: 'admin' | 'user' | 'auditor';
+  passwordHash: string;
+  createdAt: string;
+}
+
 export type GrantOperation =
   | 'encrypt'
   | 'decrypt'
@@ -73,7 +81,9 @@ export type AuditAction =
   | 'GRANT_CREATE'
   | 'GRANT_UPDATE'
   | 'AUDIT_VERIFY'
-  | 'HEALTH_CHECK';
+  | 'HEALTH_CHECK'
+  | 'AUTH_REGISTER'
+  | 'AUTH_LOGIN';
 
 export interface AuditRecord {
   id: string;

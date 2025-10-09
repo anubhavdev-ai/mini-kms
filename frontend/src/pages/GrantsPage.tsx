@@ -1,6 +1,6 @@
 import { FormEvent, useState } from 'react';
 import { useGrants, useUpsertGrant } from '../api/grants';
-import { Fade as Hamburger } from 'hamburger-react'
+import { useAuth } from '../actorContext';
 
 const defaultGrant = {
   principal: '',
@@ -16,7 +16,19 @@ interface GrantPageProps {
 }
 
 
-export default function GrantsPage({ isOpen, setOpen }: GrantPageProps) {
+export default function GrantsPage({ isOpen: _isOpen, setOpen: _setOpen }: GrantPageProps) {
+  const { session } = useAuth();
+  const isAdmin = session?.user.role === 'admin';
+
+  if (!isAdmin) {
+    return (
+      <section className="panel">
+        <h2>Grants</h2>
+        <p>You need administrator privileges to view or modify grants.</p>
+      </section>
+    );
+  }
+
   const { data } = useGrants();
   const upsert = useUpsertGrant();
   const [form, setForm] = useState(defaultGrant);
@@ -44,9 +56,6 @@ export default function GrantsPage({ isOpen, setOpen }: GrantPageProps) {
 
   return (
     <div className="grid">
-       {/* <div className='z-20 block lg:hidden '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div> */}
       <section className="panel">
         <h2>Grants</h2>
         <table className="table">

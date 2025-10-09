@@ -15,6 +15,16 @@ export async function initDatabase(): Promise<void> {
   const connection = await pool.getConnection();
   try {
     await connection.query(
+      `CREATE TABLE IF NOT EXISTS users (
+        id CHAR(36) PRIMARY KEY,
+        email VARCHAR(256) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        role VARCHAR(16) NOT NULL,
+        created_at DATETIME NOT NULL
+      )`
+    );
+
+    await connection.query(
       `CREATE TABLE IF NOT EXISTS \`keys\` (
         id CHAR(36) PRIMARY KEY,
         name VARCHAR(128) NOT NULL UNIQUE,
@@ -78,6 +88,7 @@ export async function initDatabase(): Promise<void> {
     await ensureIndex(connection, 'audit_logs', 'idx_audit_timestamp', '`timestamp`');
     await ensureIndex(connection, '`grants`', 'idx_grants_principal', '`principal`');
     await ensureIndex(connection, '`keys`', 'idx_keys_state', '`state`');
+    await ensureIndex(connection, 'users', 'idx_users_email', '`email`');
   } finally {
     connection.release();
   }

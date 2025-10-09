@@ -22,6 +22,7 @@ Client (React console / curl / automation)
 [Express HTTP Layer]
   ├─ middleware: helmet, cors, morgan, JSON body limit, request-id injector
   ├─ routers:
+  │    • /v1/auth     (register/login)
   │    • /v1/keys     (key lifecycle)
   │    • /v1/crypto   (encrypt/decrypt/sign/verify)
   │    • /v1/grants   (RBAC management)
@@ -36,11 +37,13 @@ Client (React console / curl / automation)
   ├─ EnvelopeService   (AWS KMS or local AES wrapper)
   ├─ GrantService      (authorization decisions)
   ├─ AuditService      (hash chain + compatibility)
+  ├─ UserService       (registration, login, JWT issuance)
+  ├─ BlockchainAnchorService (optional audit head anchoring on blockchain)
   ├─ OpsService        (metrics/rotation insights)
   └─ Scheduler         (node-cron rotation job)
 
 [Storage Layer]
-  └─ StorageService (mysql2/promise) handling `keys`, `key_versions`, `grants`, `audit_logs`
+  └─ StorageService (mysql2/promise) handling `users`, `keys`, `key_versions`, `grants`, `audit_logs`
 
 Utilities like `asyncHandler`, `crypto.ts`, and `http.ts` keep the surface tidy.
 
@@ -57,10 +60,12 @@ Utilities like `asyncHandler`, `crypto.ts`, and `http.ts` keep the surface tidy.
 - Derives a deterministic 32-byte master key from `KMS_MASTER_KEY`.
 - Reads AWS KMS toggles (`KMS_USE_AWS`, `KMS_AWS_KEY_ID`) and default grace period (`KMS_GRACE_DAYS`).
 - Exposes MySQL connection parameters.
+- Configures JWT authentication (`AUTH_JWT_SECRET`, `AUTH_JWT_EXPIRES_IN`) used to sign access tokens.
+- Surfaces blockchain anchoring settings (`ANCHOR_ENABLED`, RPC URL, private key, destination address, confirmations) for optional audit sealing.
 
 ### 3.3 StorageService
 - Owns table creation (idempotent `CREATE TABLE IF NOT EXISTS`).
-- Presents domain-friendly helpers: `insertKey`, `listVersionsForKey`, `upsertGrant`, `insertAuditRecord`, metrics queries, etc.
+- Presents domain-friendly helpers: `insertUser`, `findUserByEmail`, `countUsers`, `insertKey`, `listVersionsForKey`, `upsertGrant`, `insertAuditRecord`, metrics queries, etc.
 - Serialises `metadata`, `wrappedMaterial`, `allowedOps`, `conditions`, `details` to JSON columns.
 - Adds analytics utilities:
   - `countKeysByState`
@@ -99,11 +104,27 @@ Utilities like `asyncHandler`, `crypto.ts`, and `http.ts` keep the surface tidy.
 - `verifyChain` recomputes expected hashes, honours legacy formats for older rows, and collects IDs it had to treat as legacy.
 - Links every API path to `AuditService.record`, logging both successes and failures with contextual details.
 
-### 3.9 OpsService
+### 3.9 UserService
+- Normalises email addresses, hashes passwords with `bcryptjs`, and ensures the first registered account becomes the administrator.
+- Issues JWT access tokens using the shared config secret/expiry and returns public user profiles for the UI.
+- Exposes `register`, `login`, and `findUserById` helpers consumed by the auth router and middleware.
+
+### 3.10 Authentication middleware (`createAuthenticateMiddleware`)
+- Parses `Authorization: Bearer <token>` headers, verifies JWTs, and looks up the backing user record.
+- Attaches `{ id, email, role }` to the Express request so downstream handlers can derive the `ActorContext` without trusting headers.
+- Clears requests without a valid token early, returning HTTP 401.
+
+### 3.11 BlockchainAnchorService
+- Optional helper that wraps the `ethers` library to submit tiny transactions containing the latest audit hash.
+- Reads configuration from `config.anchor` and no-ops when disabled or misconfigured.
+- Encodes `{ hash, recordId, timestamp }` as UTF‑8 JSON and sends it in the transaction `data` field, waiting for a configurable number of confirmations before reporting success.
+- Returns transaction hash, block number, network name, and chain ID so callers can surface the anchor in responses/audits.
+
+### 3.12 OpsService
 - Pulls live metrics using `StorageService` helpers: key counts, rotation candidates (including days since last rotation), audit verification status, and usage tallies (encrypt/decrypt/rotate counts over the last 24h/30d).
 - Powers the dashboard and `/v1/ops/metrics`.
 
-### 3.10 Scheduler
+### 3.13 Scheduler
 - Cron expression `0 * * * *` (top of every hour).
 - Fetches keys due for rotation (using `rotationPeriodDays`), rotates them, and records audit entries tagged with the scheduler actor.
 - Failures surface in the audit trail with `status: FAILURE`.
@@ -114,6 +135,7 @@ Utilities like `asyncHandler`, `crypto.ts`, and `http.ts` keep the surface tidy.
 
 | Entity | Key fields | Purpose |
 | --- | --- | --- |
+| `users` | `id`, `email`, `password_hash`, `role`, `created_at` | Authenticated principals (admin/user/auditor) |
 | `keys` | `id`, `name`, `type`, `purpose`, `state`, `rotation_period_days`, `grace_period_days`, `current_version`, `metadata` | Logical key metadata + owner tags |
 | `key_versions` | `id`, `key_id`, `version`, `state`, `wrapped_material`, `public_key_pem`, `not_before`, `not_after`, `grace_period_days` | Versioned wrapped material |
 | `grants` | `id`, `principal`, `role`, `key_id`, `allowed_ops`, `conditions` | RBAC rules, wildcard allowed |
@@ -125,10 +147,11 @@ JSON columns keep metadata flexible for future expansions.
 
 ## 5. Typical request flow
 
-1. **Client hits `/v1/keys`** → Router extracts actor headers (`x-principal`, `x-role`), checks grants (`GrantService.ensureAuthorized`), delegates to `KeyService.createKey`, logs via `AuditService.record`, and responds with the new key/versions.
-2. **App encrypts data** → `/v1/crypto/encrypt` verifies permissions, loads current version, unwraps secret, encrypts payload, returns ciphertext + version metadata, and logs `ENCRYPT`.
+0. **User registers/logs in** → `/v1/auth/register` or `/v1/auth/login` returns a JWT (the first account becomes admin). The UI and SDKs store the token for subsequent calls.
+1. **Client hits `/v1/keys`** → Router derives the actor from the authenticated request, checks grants (`GrantService.ensureAuthorized` when required), delegates to `KeyService.createKey`, logs via `AuditService.record`, and responds with the new key/versions.
+2. **App encrypts data** → `/v1/crypto/encrypt` verifies permissions, loads the current version, unwraps secret material, encrypts payload, returns ciphertext + version metadata, and logs `ENCRYPT`.
 3. **Scheduler rotates stale keys** → Cron job lists candidates, calls `KeyService.rotateKey`, emits `KEY_ROTATE` audit entries (success or failure).
-4. **Auditor verifies logs** → `/v1/audit/verify` recomputes the hash chain end-to-end, logs `AUDIT_VERIFY` with `ok` flag, and the UI highlights the result.
+4. **Auditor verifies logs** → `/v1/audit/verify` recomputes the hash chain end-to-end, logs `AUDIT_VERIFY` with `ok` flag, and, when anchoring is enabled, submits the head hash to the configured blockchain and records the transaction metadata.
 5. **Operators query `/v1/ops/metrics`** → `OpsService` returns dashboards metrics (key states, rotation alerts, usage, last audit verification).
 
 ---
@@ -138,8 +161,9 @@ JSON columns keep metadata flexible for future expansions.
 - Envelope encryption ensures wrapped secret material is never stored in plaintext.
 - AES-GCM includes `keyId`/`version` as Additional Authenticated Data to prevent ciphertext replay across keys.
 - Grants enforce least privilege; only principals with `create` can mint new keys, and new keys auto-grant manage permissions to the creator.
-- Audit chain verifies integrity locally; for production we recommend anchoring head hashes to immutable storage (S3 with versioning, blockchain, etc.).
+- Audit chain verifies integrity locally; turning on blockchain anchoring automatically seals the head hash on-chain after each verify, and you can still layer additional immutable stores (S3 versioning, notary service) for redundancy.
 - Environment variables supply secrets; `.env` remains untracked. Run behind TLS and layer real authentication (mTLS, OIDC) before going live.
+- JWTs back every request; keep `AUTH_JWT_SECRET` safe (use a secrets manager) and pair it with HTTPS-only clients.
 - Scheduler runs under an admin persona so all automated actions have consistent audit semantics.
 
 ---
@@ -151,7 +175,7 @@ JSON columns keep metadata flexible for future expansions.
 - Build more ops signals (e.g., auto-revoke when grace window expires) or send metrics to Prometheus.
 - Integrate approval workflows (dual control) by enhancing `GrantService` and the routers.
 - Expose gRPC or GraphQL adapters using the same service layer.
-- Anchor audit hashes externally (blockchain, notary service) for stronger compliance stories.
+- Extend anchoring (multi-chain redundancy, scheduled seals, managed notary integrations) for stronger compliance stories.
 
 ---
 

@@ -1,125 +1,87 @@
-import { useMemo } from 'react';
-import { NavLink, Route, Routes } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import SideMenu from './pages/SideMenu';
+import { useEffect, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
+import { Fade as Hamburger } from 'hamburger-react';
 import DashboardPage from './pages/DashboardPage';
 import KeysPage from './pages/KeysPage';
 import WizardPage from './pages/WizardPage';
 import AuditPage from './pages/AuditPage';
 import GrantsPage from './pages/GrantsPage';
-import { ActorProvider, useActor, type Role } from './actorContext';
-import { Fade as Hamburger } from 'hamburger-react'
+import SideMenu from './pages/SideMenu';
+import AuthPage from './pages/AuthPage';
+import { AuthProvider, useAuth } from './actorContext';
 
-interface ActorToolbarProps {
-  isOpen: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-
-function ActorToolbar({ isOpen, setOpen }: ActorToolbarProps) {
-  const { actor, update } = useActor();
-  const roles: Role[] = useMemo(() => ['admin', 'app', 'auditor'], []);
-  //  const [isOpen, setOpen] = useState(false);
-
-  return (
-    <section className="panel actor-bar">
-      <div className='z-40 absolute block lg:hidden '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div>
-      <div className='pt-12'></div>
-      <div className="grid two">
-        <div>
-          <label>Principal</label>
-          <input
-            className="input"
-            value={actor.principal}
-            onChange={(event) => update({ principal: event.target.value })}
-            placeholder="e.g. demo-admin"
-          />
-        </div>
-        <div>
-          <label>Role</label>
-          <select
-            className="select"
-            value={actor.role}
-            onChange={(event) => update({ role: event.target.value as Role })}
-          >
-            {roles.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <p className="actor-hint">
-        Requests are issued as <strong>{actor.principal || 'unknown'}</strong> with{' '}
-        <strong>{actor.role}</strong> privileges.
-      </p>
-    </section>
-  );
-}
-
-export default function App() {
+function AppShell(): JSX.Element {
+  const { session, logout } = useAuth();
   const [isOpen, setOpen] = useState(false);
 
-  // prevent background scroll when menu is open
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
-  return (
+  if (!session) {
+    return <AuthPage />;
+  }
 
-    <ActorProvider>
-        <div className="relative app-shell lg:grid justify-center items-center lg:items-start">
-      {/* Desktop sidebar */}
+  const roleLabel = session.user.role === 'user' ? 'app' : session.user.role;
+
+  return (
+    <div className="relative app-shell lg:grid justify-center items-center lg:items-start">
       <aside className="sidebar hidden lg:flex lg:flex-col">
-        <h1>Mini KMS</h1>
-        <nav>
-          <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/keys">Keys</NavLink>
-          <NavLink to="/wizard">Workflow Wizard</NavLink>
-          <NavLink to="/audit">Audit Trail</NavLink>
-          <NavLink to="/grants">Grants</NavLink>
-        </nav>
+        <SideMenu user={session.user} onNavigate={() => setOpen(false)} onLogout={logout} />
       </aside>
 
-      {/* Mobile overlay + sliding sidebar - always mounted so transitions run */}
       <div className="lg:hidden">
-        {/* Backdrop: fade in/out via opacity */}
         <div
-          className={
-            `fixed inset-0 bg-black z-10 transition-opacity duration-300 ` +
-            (isOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0 pointer-events-none')
-          }
+          className={`fixed inset-0 bg-black z-10 transition-opacity duration-300 ${
+            isOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
           onClick={() => setOpen(false)}
         />
-
-        {/* Sidebar: slide in/out via transform */}
         <div
-          className={
-            `fixed top-0 left-0 w-64 h-full z-20 transform transition-transform duration-300 ease-in-out ` +
-            (isOpen ? 'translate-x-0' : '-translate-x-full')
-          }
+          className={`fixed top-0 left-0 w-64 h-full z-20 transform transition-transform duration-300 ease-in-out ${
+            isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
         >
-          {/* Optional: pass a callback so SideMenu links can close the menu */}
-          <SideMenu onNavigate={() => setOpen(false)} />
+          <SideMenu user={session.user} onNavigate={() => setOpen(false)} onLogout={logout} />
         </div>
       </div>
 
-
       <main className="content">
-     <ActorToolbar isOpen={isOpen} setOpen={setOpen} />
+        <section className="panel actor-bar">
+          <div className="flex-between" style={{ gap: 16, flexWrap: 'wrap' }}>
+            <div className="flex" style={{ alignItems: 'center', gap: 12 }}>
+              <div className="lg:hidden">
+                <Hamburger toggled={isOpen} toggle={setOpen} size={18} />
+              </div>
+              <div>
+                <p style={{ margin: 0 }}>Signed in as <strong>{session.user.email}</strong></p>
+                <small style={{ color: 'rgba(226,232,240,0.7)' }}>Role: {roleLabel}</small>
+              </div>
+            </div>
+            <button className="button secondary" onClick={logout}>
+              Log out
+            </button>
+          </div>
+        </section>
         <Routes>
           <Route path="/" element={<DashboardPage isOpen={isOpen} setOpen={setOpen} />} />
-          <Route path="/keys" element={<KeysPage  isOpen={isOpen} setOpen={setOpen} />} />
+          <Route path="/keys" element={<KeysPage isOpen={isOpen} setOpen={setOpen} />} />
           <Route path="/wizard" element={<WizardPage isOpen={isOpen} setOpen={setOpen} />} />
           <Route path="/audit" element={<AuditPage isOpen={isOpen} setOpen={setOpen} />} />
-          <Route path="/grants" element={<GrantsPage  isOpen={isOpen} setOpen={setOpen}/>} />
+          <Route path="/grants" element={<GrantsPage isOpen={isOpen} setOpen={setOpen} />} />
         </Routes>
       </main>
     </div>
-    </ActorProvider>
+  );
+}
+
+export default function App(): JSX.Element {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   );
 }
