@@ -8,25 +8,13 @@ import WizardPage from './pages/WizardPage';
 import AuditPage from './pages/AuditPage';
 import GrantsPage from './pages/GrantsPage';
 import { ActorProvider, useActor, type Role } from './actorContext';
-import { Fade as Hamburger } from 'hamburger-react'
 
-interface ActorToolbarProps {
-  isOpen: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}
-
-
-function ActorToolbar({ isOpen, setOpen }: ActorToolbarProps) {
+function ActorToolbar() {
   const { actor, update } = useActor();
   const roles: Role[] = useMemo(() => ['admin', 'app', 'auditor'], []);
-  //  const [isOpen, setOpen] = useState(false);
 
   return (
     <section className="panel actor-bar">
-      <div className='z-40 absolute block lg:hidden '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div>
-      <div className='pt-12'></div>
       <div className="grid two">
         <div>
           <label>Principal</label>
@@ -110,7 +98,7 @@ export default function App() {
 
 
       <main className="content">
-     <ActorToolbar isOpen={isOpen} setOpen={setOpen} />
+    <ActorToolbar/>
         <Routes>
           <Route path="/" element={<DashboardPage isOpen={isOpen} setOpen={setOpen} />} />
           <Route path="/keys" element={<KeysPage  isOpen={isOpen} setOpen={setOpen} />} />
