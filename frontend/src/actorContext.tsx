@@ -2,79 +2,61 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type PropsWithChildren,
 } from 'react';
-import { getActor, setActor } from './api/client';
+import { Session, getSession, setSession as persistSession, clearSession, SessionUser } from './api/client';
 
-export type Role = 'admin' | 'app' | 'auditor';
-
-export interface ActorState {
-  principal: string;
-  role: Role;
+interface AuthContextValue {
+  session: Session | null;
+  login: (session: Session) => void;
+  logout: () => void;
+  updateUser: (user: Partial<SessionUser>) => void;
 }
 
-interface ActorContextValue {
-  actor: ActorState;
-  update: (next: Partial<ActorState>) => void;
-}
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const ActorContext = createContext<ActorContextValue | undefined>(undefined);
+export function AuthProvider({ children }: PropsWithChildren): JSX.Element {
+  const [session, setSessionState] = useState<Session | null>(() => getSession());
 
-function readInitialActor(): ActorState {
-  const fallback = getActor();
-  if (typeof window === 'undefined') {
-    return fallback;
-  }
-  const stored = window.localStorage.getItem('kms-actor');
-  if (!stored) {
-    return fallback;
-  }
-  try {
-    const parsed = JSON.parse(stored) as Partial<ActorState>;
-    if (parsed.principal && parsed.role && ['admin', 'app', 'auditor'].includes(parsed.role)) {
-      return parsed as ActorState;
-    }
-  } catch (error) {
-    console.warn('Failed to restore actor from storage', error);
-  }
-  return fallback;
-}
-
-export function ActorProvider({ children }: PropsWithChildren): JSX.Element {
-  const [actor, setActorState] = useState<ActorState>(() => readInitialActor());
-
-  useEffect(() => {
-    setActor(actor);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('kms-actor', JSON.stringify(actor));
-    }
-  }, [actor]);
-
-  const update = useCallback((next: Partial<ActorState>) => {
-    setActorState((prev) => ({
-      principal: next.principal ?? prev.principal,
-      role: (next.role as Role | undefined) ?? prev.role,
-    }));
+  const login = useCallback((next: Session) => {
+    setSessionState(next);
+    persistSession(next);
   }, []);
 
-  const value = useMemo<ActorContextValue>(
-    () => ({
-      actor,
-      update,
-    }),
-    [actor, update]
+  const logout = useCallback(() => {
+    setSessionState(null);
+    clearSession();
+  }, []);
+
+  const updateUser = useCallback((patch: Partial<SessionUser>) => {
+    setSessionState((prev) => {
+      if (!prev) return prev;
+      const updated: Session = {
+        ...prev,
+        user: {
+          ...prev.user,
+          ...patch,
+        },
+      };
+      persistSession(updated);
+      return updated;
+    });
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ session, login, logout, updateUser }),
+    [session, login, logout, updateUser]
   );
 
-  return <ActorContext.Provider value={value}>{children}</ActorContext.Provider>;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useActor(): ActorContextValue {
-  const context = useContext(ActorContext);
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useActor must be used within ActorProvider');
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }

@@ -5,6 +5,7 @@ import {
   GrantRecord,
   KeyRecord,
   KeyVersionRecord,
+  UserRecord,
 } from '../types/index.js';
 
 function parseJson<T>(value: unknown): T | undefined {
@@ -107,6 +108,14 @@ type AuditActionCountRow = RowDataPacket & {
   total: number;
 };
 
+type UserRow = RowDataPacket & {
+  id: string;
+  email: string;
+  password_hash: string;
+  role: string;
+  created_at: Date;
+};
+
 function mapKey(row: KeyRow): KeyRecord {
   return {
     id: row.id,
@@ -170,7 +179,46 @@ function mapAudit(row: AuditRow): AuditRecord {
   };
 }
 
+function mapUser(row: UserRow): UserRecord {
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role as UserRecord['role'],
+    passwordHash: row.password_hash,
+    createdAt: toDateString(row.created_at),
+  };
+}
+
 export class StorageService {
+  async countUsers(): Promise<number> {
+    const [rows] = await pool.query<CountRow[]>('SELECT COUNT(*) as total FROM users');
+    return rows[0] ? Number(rows[0].total) : 0;
+  }
+
+  async insertUser(record: UserRecord): Promise<void> {
+    await pool.execute(
+      `INSERT INTO users (id, email, password_hash, role, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        record.email,
+        record.passwordHash,
+        record.role,
+        toMysqlDateTime(record.createdAt),
+      ]
+    );
+  }
+
+  async findUserByEmail(email: string): Promise<UserRecord | undefined> {
+    const [rows] = await pool.query<UserRow[]>('SELECT * FROM users WHERE email = ? LIMIT 1', [email]);
+    return rows[0] ? mapUser(rows[0]) : undefined;
+  }
+
+  async findUserById(id: string): Promise<UserRecord | undefined> {
+    const [rows] = await pool.query<UserRow[]>('SELECT * FROM users WHERE id = ? LIMIT 1', [id]);
+    return rows[0] ? mapUser(rows[0]) : undefined;
+  }
+
   async listKeys(): Promise<KeyRecord[]> {
     const [rows] = await pool.query<KeyRow[]>('SELECT * FROM `keys` ORDER BY name ASC');
     return rows.map(mapKey);

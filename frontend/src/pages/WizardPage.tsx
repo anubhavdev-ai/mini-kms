@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { apiClient } from '../api/client';
 import { useAuditLog } from '../api/audit';
-import { Fade as Hamburger } from 'hamburger-react'
 
 interface StepState {
   status: 'idle' | 'running' | 'success' | 'error';
@@ -18,7 +17,7 @@ interface WizardPageProps {
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function WizardPage({ isOpen, setOpen }: WizardPageProps) {
+export default function WizardPage({ isOpen: _isOpen, setOpen: _setOpen }: WizardPageProps) {
   const [keyId, setKeyId] = useState<string | null>(null);
   const [cipherBundle, setCipherBundle] = useState<any>(null);
   const [resultMessages, setResultMessages] = useState<string[]>([]);

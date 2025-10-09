@@ -2,8 +2,21 @@ import { Router } from 'express';
 import { AuditService } from '../services/auditService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { extractActor } from '../utils/http.js';
+import { BlockchainAnchorService } from '../services/blockchainAnchorService.js';
 
-export function createAuditRouter(auditService: AuditService): Router {
+type AnchorOutcome =
+  | {
+      txHash: string;
+      blockNumber?: number;
+      network?: string;
+      chainId?: number;
+    }
+  | { error: string };
+
+export function createAuditRouter(
+  auditService: AuditService,
+  anchorService?: BlockchainAnchorService
+): Router {
   const router = Router();
 
   router.get(
@@ -28,8 +41,28 @@ export function createAuditRouter(auditService: AuditService): Router {
         return;
       }
       const result = await auditService.verifyChain();
-      await auditService.record(actor, 'AUDIT_VERIFY', result.ok ? 'SUCCESS' : 'FAILURE', result);
-      res.json(result);
+      let anchor: AnchorOutcome | undefined;
+      if (result.ok && anchorService?.isEnabled()) {
+        const head = await auditService.getLatestRecord();
+        if (head) {
+          try {
+            anchor = await anchorService.anchor(head.hash, { recordId: head.id });
+          } catch (error) {
+            anchor = { error: (error as Error).message };
+          }
+        }
+      }
+      const response: Record<string, unknown> = { ...result };
+      if (anchor) {
+        response.anchor = anchor;
+      }
+      await auditService.record(
+        actor,
+        'AUDIT_VERIFY',
+        result.ok ? 'SUCCESS' : 'FAILURE',
+        response
+      );
+      res.json(response);
     })
   );
 

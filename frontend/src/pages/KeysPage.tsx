@@ -1,5 +1,4 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { Fade as Hamburger } from 'hamburger-react'
 import {
   useCreateKey,
   useDisableVersion,
@@ -8,7 +7,7 @@ import {
   useRotateKey,
   useRevokeVersion,
 } from '../api/keys';
-import { useActor } from '../actorContext';
+import { useAuth } from '../actorContext';
 
 const defaultForm = {
   name: '',
@@ -23,7 +22,7 @@ interface KeysPageProps {
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
+export default function KeysPage({ isOpen: _isOpen, setOpen: _setOpen }: KeysPageProps) {
   const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
   const { data: keys, isLoading } = useKeys();
@@ -32,7 +31,9 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
   const rotateMutation = useRotateKey(selectedKeyId ?? '');
   const disableMutation = useDisableVersion(selectedKeyId ?? '');
   const revokeMutation = useRevokeVersion(selectedKeyId ?? '');
-  const { actor } = useActor();
+  const { session } = useAuth();
+  const ownerEmail = session?.user.email ?? 'unknown';
+  const ownerId = session?.user.id ?? 'unknown';
 
   const sortedKeys = useMemo(() => {
     return (keys ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -47,7 +48,8 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
       rotationPeriodDays: form.rotationPeriodDays,
       gracePeriodDays: form.gracePeriodDays,
       metadata: {
-        owner: actor.principal,
+        ownerId,
+        ownerEmail,
       },
     });
     setForm(defaultForm);
@@ -55,9 +57,6 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
 
   return (
     <div className="grid">
-      {/* <div className='z-20 block lg:hidden '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div> */}
       <section className="panel">
         <div className="flex-between">
           <h2>Keys</h2>
@@ -88,7 +87,7 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
                 </td>
                 <td>{key.currentVersion}</td>
                 <td>{key.rotationPeriodDays ? `${key.rotationPeriodDays} days` : 'Manual'}</td>
-                <td>{(key.metadata?.owner as string) ?? '—'}</td>
+                <td>{(key.metadata?.ownerEmail as string) ?? (key.metadata?.ownerId as string) ?? '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -161,8 +160,7 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
             {createMutation.isLoading ? 'Creating…' : 'Create Key'}
           </button>
           <span style={{ fontSize: 12, color: 'rgba(226,232,240,0.7)' }}>
-            New keys are tagged with <strong>{actor.principal || 'unknown'}</strong> as owner and manage grants are
-            auto-assigned.
+            New keys are tagged with <strong>{ownerEmail}</strong> as owner and manage grants are auto-assigned.
           </span>
           {createMutation.error ? <span style={{ color: '#f87171' }}>{(createMutation.error as Error).message}</span> : null}
         </form>
@@ -180,7 +178,12 @@ export default function KeysPage({ isOpen, setOpen }: KeysPageProps) {
           </div>
           <p>Purpose: {selectedKey.data.purpose}</p>
           <p>State: {selectedKey.data.state}</p>
-          <p>Owner: {(selectedKey.data.metadata?.owner as string) ?? '—'}</p>
+          <p>
+            Owner:{' '}
+            {(selectedKey.data.metadata?.ownerEmail as string) ??
+              (selectedKey.data.metadata?.ownerId as string) ??
+              '—'}
+          </p>
           <h3>Versions</h3>
           <table className="table">
             <thead>

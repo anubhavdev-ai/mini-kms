@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useKeys } from '../api/keys';
 import { useAuditLog } from '../api/audit';
 import { useOperationalMetrics } from '../api/ops';
@@ -9,7 +9,7 @@ interface DashboardPageProps {
 }
 
 
-export default function DashboardPage({ isOpen, setOpen }: DashboardPageProps) {
+export default function DashboardPage({ isOpen: _isOpen, setOpen: _setOpen }: DashboardPageProps) {
   const { data: keys } = useKeys();
   const { data: audit } = useAuditLog();
   const { data: metrics } = useOperationalMetrics();
@@ -37,9 +37,6 @@ export default function DashboardPage({ isOpen, setOpen }: DashboardPageProps) {
 
   return (
     <div className="grid ">
-      {/* <div className='z-20 block lg:hidden '>
-        <Hamburger toggled={isOpen} toggle={setOpen} />
-      </div> */}
       <section className="panel ">
         <h2>At a glance</h2>
         <div className="grid two">

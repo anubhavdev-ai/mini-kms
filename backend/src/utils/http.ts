@@ -1,15 +1,20 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import { ActorContext } from '../types/index.js';
+import { AuthenticatedRequest } from '../middleware/authenticate.js';
 
 export function extractActor(req: Request): ActorContext {
-  const principal = (req.header('x-principal') ?? 'anonymous').toLowerCase();
-  const roleHeader = (req.header('x-role') ?? 'app').toLowerCase();
-  const role = roleHeader === 'admin' || roleHeader === 'auditor' ? roleHeader : 'app';
-  const requestId = req.header('x-request-id') ?? crypto.randomUUID();
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user;
+  if (!user) {
+    throw new Error('Missing authenticated user context');
+  }
+  const requestId = authReq.requestId ?? req.header('x-request-id') ?? crypto.randomUUID();
+  const actorRole: ActorContext['role'] =
+    user.role === 'admin' ? 'admin' : user.role === 'auditor' ? 'auditor' : 'app';
   return {
-    principal,
-    role: role as ActorContext['role'],
+    principal: user.id,
+    role: actorRole,
     requestId,
   };
 }
@@ -17,6 +22,6 @@ export function extractActor(req: Request): ActorContext {
 export function attachRequestId(req: Request, res: Response, next: NextFunction): void {
   const requestId = req.header('x-request-id') ?? crypto.randomUUID();
   res.setHeader('x-request-id', requestId);
-  (req as Request & { requestId: string }).requestId = requestId;
+  (req as AuthenticatedRequest).requestId = requestId;
   next();
 }
