@@ -125,6 +125,10 @@ export class AuditService {
     return this.storage.listAuditLogs();
   }
 
+  async getLatestRecord(): Promise<AuditRecord | undefined> {
+    return this.storage.getLastAuditRecord();
+  }
+
   async record(
     context: ActorContext,
     action: AuditAction,

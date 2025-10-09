@@ -8,7 +8,7 @@ The frontend is a lightweight companion to the API. It exists to tell the story 
 
 - Give admins, app teams, and auditors a shared window into keys, versions, usage, grants, and audits.
 - Offer a guided wizard that walks newcomers through “generate → encrypt → rotate → decrypt → revoke → verify”.
-- Let operators impersonate different principals/roles without logging out.
+- Handle sign-in/registration and keep users scoped to the keys they own unless an admin grants elevated access.
 - Surface operational signals (rotation alerts, audit health, usage stats) so you can spot trouble early.
 - Leave plenty of hooks for future features (e.g., voice-scam detector dashboards).
 
@@ -19,7 +19,7 @@ The frontend is a lightweight companion to the API. It exists to tell the story 
 - **Framework:** React 18 + Vite.
 - **Routing:** React Router v6.
 - **Data:** @tanstack/react-query for fetching, caching, polling, retries.
-- **HTTP:** Axios with a shared client that injects `x-principal` / `x-role` headers.
+- **HTTP:** Axios with a shared client that attaches `Authorization: Bearer <token>` using the persisted session.
 - **Styling:** Dark, utility-like CSS in `styles.css`.
 
 ---
@@ -33,7 +33,8 @@ src/
   actorContext.tsx    # Principal/role state shared across the app
 
   api/
-    client.ts         # Axios instance, setter/getter for actor headers
+    client.ts         # Axios instance, session persistence, auth header injection
+    auth.ts           # Register/login helpers
     keys.ts           # Queries + mutations for key lifecycle
     crypto.ts         # Encrypt/decrypt/sign/verify hooks
     audit.ts          # Audit log + verification hook
@@ -41,11 +42,12 @@ src/
     ops.ts            # Operational metrics hook
 
   pages/
+    AuthPage.tsx      # Sign-in / registration
     DashboardPage.tsx # Metrics dashboard + rotation alerts + audits
     KeysPage.tsx      # Key table, create form, version controls
     WizardPage.tsx    # Step-by-step lifecycle walkthrough
-    AuditPage.tsx     # Log viewer + integrity button
-    GrantsPage.tsx    # Grant list/editor
+    AuditPage.tsx     # Log viewer + integrity + anchor receipts
+    GrantsPage.tsx    # Grant list/editor (admin only)
 
 React Query holds almost all shared state; components keep just enough local state for forms and selections.
 
@@ -56,8 +58,8 @@ React Query holds almost all shared state; components keep just enough local sta
 ### 4.1 Axios client
 
 - Base URL comes from `VITE_API_BASE_URL` (defaults to `/v1`).
-- `setActor` / `getActor` let the toolbar mutate the principal/role; headers are injected via request interceptor.
-- Headers fall back to env defaults so the UI works out of the box (`demo-admin` / `admin`).
+- Persists `{ token, user }` sessions in `localStorage` so refreshes keep you signed in.
+- Request interceptor adds `Authorization: Bearer <token>` when a session exists; a response interceptor clears the session on HTTP 401.
 
 ### 4.2 React Query hooks
 
@@ -69,6 +71,11 @@ React Query holds almost all shared state; components keep just enough local sta
 
 ## 5. Page behaviour
 
+### AuthPage
+
+- Handles registration and sign-in, surfacing backend errors inline.
+- On success, stores the returned session via the auth context which in turn updates Axios.
+
 ### Dashboard
 
 - Combines `/v1/ops/metrics` with the audit log tail and key inventory.
@@ -77,9 +84,9 @@ React Query holds almost all shared state; components keep just enough local sta
 
 ### Keys
 
-- Lists keys with state, current version, rotation policy, and owner metadata.
+- Lists keys with state, current version, rotation policy, and owner metadata (filtered to the signed-in user unless they’re an admin/auditor).
 - Selecting a row loads detailed version history.
-- Create form includes owner tagging (current actor) and surfaces backend defaults (30-day rotation, 7-day grace).
+- Create form auto-tags the current user as owner and surfaces backend defaults (30-day rotation, 7-day grace).
 - Rotate/disable/revoke buttons map to the respective API mutations.
 
 ### Lifecycle wizard
@@ -91,29 +98,29 @@ React Query holds almost all shared state; components keep just enough local sta
 ### Audit
 
 - Displays the latest audit entries with action, status, hash snippet, and timestamp.
-- “Verify integrity” button calls `/v1/audit/verify` and prints the result inline.
+- “Verify integrity” button calls `/v1/audit/verify`, refreshes the table, and shows both the integrity verdict and any blockchain anchoring metadata (transaction hash, network) returned by the backend.
 
 ### Grants
 
-- Reads grants via `useGrants` and displays principal, role, key scope (`*` supported), operations, timestamp.
+- Reads grants via `useGrants` when the current user is an admin; renders an access message otherwise.
 - Form lets admins upsert grants with comma-separated operations and JSON conditions.
 
 ---
 
-## 6. Actor context
+## 6. Auth context
 
-- `actorContext.tsx` stores the current principal/role, syncs them to localStorage, and pushes changes into the Axios client.
-- The toolbar in `App.tsx` lets users edit these values; everything else reacts automatically.
-- Makes it trivial to role-play an auditor, app client, or admin in a single session.
+- `actorContext.tsx` (renamed in code to act as the auth provider) keeps the `{ token, user }` session in React state and persists it to `localStorage`.
+- Exposes `login`, `logout`, and `updateUser` helpers so pages/components can react to authentication changes.
+- When the session changes it updates the Axios client, ensuring all requests automatically include or drop the bearer token.
 
 ---
 
 ## 7. Security & UX considerations
 
-- No auth tokens are stored; identity is simulated via headers for demo purposes. Production deployments should sit behind an auth proxy that maps real identities to principals.
-- React Query data lives in memory only; no persistence beyond the actor context.
-- UI nudges (public badges, rotation alerts) encourage healthy lifecycle behaviour.
-- Audit hashes are surfaced prominently to reinforce tamper-evidence.
+- JWTs live in `localStorage`; pair them with HTTPS and rotate the signing secret in production.
+- React Query data lives in memory only; no persistence beyond the session provider.
+- UI nudges (alerts, rotation callouts, owner tags) encourage healthy lifecycle behaviour.
+- Audit hashes (and anchoring receipts when available) are surfaced prominently to reinforce tamper-evidence.
 
 ---
 

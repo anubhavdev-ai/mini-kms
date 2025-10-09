@@ -13,6 +13,13 @@ const derivedMasterKey = crypto
   .update(masterKeySource ?? crypto.randomBytes(32))
   .digest();
 
+const jwtSecret = process.env.AUTH_JWT_SECRET;
+if (!jwtSecret) {
+  console.warn(
+    '[mini-kms] AUTH_JWT_SECRET not set. Using generated default for demo purposes. Set AUTH_JWT_SECRET to a strong secret in production.'
+  );
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 4000),
   masterKey: derivedMasterKey,
@@ -26,5 +33,19 @@ export const config = {
     password: process.env.DB_PASSWORD ?? '',
     database: process.env.DB_NAME ?? 'mini_kms',
     connectionLimit: Number(process.env.DB_POOL_MAX ?? 10),
+  },
+  anchor: {
+    enabled: process.env.ANCHOR_ENABLED === 'true',
+    rpcUrl: process.env.ANCHOR_RPC_URL,
+    privateKey: process.env.ANCHOR_PRIVATE_KEY,
+    targetAddress:
+      process.env.ANCHOR_TARGET_ADDRESS ?? '0x0000000000000000000000000000000000000000',
+    chainId: process.env.ANCHOR_CHAIN_ID ? Number(process.env.ANCHOR_CHAIN_ID) : undefined,
+    confirmations: Number(process.env.ANCHOR_CONFIRMATIONS ?? 1),
+    networkName: process.env.ANCHOR_NETWORK_NAME,
+  },
+  auth: {
+    jwtSecret: jwtSecret ?? crypto.randomBytes(32).toString('hex'),
+    jwtExpiresIn: process.env.AUTH_JWT_EXPIRES_IN ?? '1h',
   },
 };

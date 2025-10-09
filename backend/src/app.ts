@@ -18,6 +18,10 @@ import { startRotationScheduler } from './services/scheduler.js';
 import { attachRequestId } from './utils/http.js';
 import { OpsService } from './services/opsService.js';
 import { createOpsRouter } from './routes/ops.js';
+import { BlockchainAnchorService } from './services/blockchainAnchorService.js';
+import { UserService } from './services/userService.js';
+import { createAuthRouter } from './routes/auth.js';
+import { createAuthenticateMiddleware } from './middleware/authenticate.js';
 
 export function createApp() {
   const app = express();
@@ -29,6 +33,9 @@ export function createApp() {
   const grantService = new GrantService(storage);
   const cryptoService = new CryptoService(keyService, envelope);
   const opsService = new OpsService(storage);
+  const anchorService = new BlockchainAnchorService();
+  const userService = new UserService(storage);
+  const authenticate = createAuthenticateMiddleware(userService);
 
   startRotationScheduler(keyService, auditService);
 
@@ -38,11 +45,13 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   app.use(morgan('combined'));
 
+  app.use('/v1/auth', createAuthRouter(userService, auditService));
+  app.use(authenticate);
   app.use('/v1/healthz', createHealthRouter(auditService));
   app.use('/v1/keys', createKeyRouter(keyService, auditService, grantService));
   app.use('/v1/crypto', createCryptoRouter(cryptoService, auditService, grantService));
   app.use('/v1/grants', createGrantRouter(grantService, auditService));
-  app.use('/v1/audit', createAuditRouter(auditService));
+  app.use('/v1/audit', createAuditRouter(auditService, anchorService));
   app.use('/v1/ops', createOpsRouter(opsService, grantService));
 
   app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

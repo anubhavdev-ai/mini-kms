@@ -19,7 +19,9 @@ export interface AuditRecord {
     | 'GRANT_CREATE'
     | 'GRANT_UPDATE'
     | 'AUDIT_VERIFY'
-    | 'HEALTH_CHECK';
+    | 'HEALTH_CHECK'
+    | 'AUTH_REGISTER'
+    | 'AUTH_LOGIN';
   requestId: string;
   details?: Record<string, unknown>;
   keyId?: string;
@@ -40,10 +42,26 @@ export function useAuditLog() {
   });
 }
 
+export interface AuditVerifyResponse {
+  ok: boolean;
+  brokenAt?: string;
+  legacy?: string[];
+  anchor?:
+    | {
+        txHash: string;
+        blockNumber?: number;
+        network?: string;
+        chainId?: number;
+      }
+    | {
+        error: string;
+      };
+}
+
 export function useAuditVerify() {
   return useMutation({
     mutationFn: async () => {
-      const { data } = await apiClient.post<{ ok: boolean; brokenAt?: string }>('/audit/verify', {});
+      const { data } = await apiClient.post<AuditVerifyResponse>('/audit/verify', {});
       return data;
     },
   });

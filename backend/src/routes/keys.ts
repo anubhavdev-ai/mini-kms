@@ -4,6 +4,7 @@ import { AuditService } from '../services/auditService.js';
 import { GrantService } from '../services/grantService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { extractActor } from '../utils/http.js';
+import type { AuthenticatedRequest } from '../middleware/authenticate.js';
 import type { GrantOperation } from '../types/index.js';
 
 export function createKeyRouter(
@@ -17,20 +18,15 @@ export function createKeyRouter(
     '/',
     asyncHandler(async (req, res) => {
       const actor = extractActor(req);
-      if (actor.role !== 'admin') {
-        try {
-          await grantService.ensureAuthorized(actor, 'create', '*');
-        } catch (error) {
-          res.status(403).json({ error: (error as Error).message });
-          return;
-        }
-      }
       try {
+        const authReq = req as AuthenticatedRequest;
+        const ownerEmail = authReq.user?.email;
         const keyInput = {
           ...req.body,
           metadata: {
             ...(req.body?.metadata ?? {}),
-            owner: req.body?.metadata?.owner ?? actor.principal,
+            ownerId: req.body?.metadata?.ownerId ?? actor.principal,
+            ownerEmail: req.body?.metadata?.ownerEmail ?? ownerEmail,
           },
         };
 
@@ -73,13 +69,16 @@ export function createKeyRouter(
     '/',
     asyncHandler(async (req, res) => {
       const actor = extractActor(req);
-      try {
-        await grantService.ensureAuthorized(actor, 'read', '*');
-        const keys = await keyService.listKeys();
+      const keys = await keyService.listKeys();
+      if (actor.role === 'admin' || actor.role === 'auditor') {
         res.json(keys);
-      } catch (error) {
-        res.status(403).json({ error: (error as Error).message });
+        return;
       }
+      const visible = keys.filter((key) => {
+        const metadata = key.metadata ?? {};
+        return metadata.ownerId === actor.principal;
+      });
+      res.json(visible);
     })
   );
 
