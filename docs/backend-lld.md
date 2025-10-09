@@ -1,151 +1,166 @@
-# Mini KMS Backend Low-Level Design
+# Mini KMS Backend — how the sausage is made
 
-## 1. Goals & Scope
-- Manage lifecycle for symmetric AES-256-GCM and asymmetric RSA-2048 keys.
-- Support AWS KMS-based envelope encryption (optional) or local AES master key fallback.
-- Provide REST APIs for key management, cryptographic usage, grants, audit logging, and health checks.
-- Offer auditability via tamper-evident hash chained logs.
-- Enable scheduled and manual key rotations plus revocation workflows.
-- Serve as crypto control-plane for downstream workloads, including the Voice-Based Financial Scam Detector (Problem Statement 2) for securely handling model secrets, feature encryption, and signing.
+This document translates the marketing bullet points into nuts-and-bolts engineering detail. If you’re extending the service, this is the map.
 
-## 2. High-Level Architecture
-```
+---
+
+## 1. What we set out to build
+
+- A lightweight control plane for AES-256-GCM and RSA-2048 keys.
+- Envelope wrapping that can flip between local AES and AWS KMS without code changes.
+- APIs for lifecycle (create → rotate → revoke), crypto usage, grants, audit, health, and ops metrics.
+- A tamper-evident audit chain that can be verified on demand.
+- Scheduled hygiene (automatic rotations) plus granular RBAC so teams can manage their own keys safely.
+
+---
+
+## 2. Architecture snapshot
+
+Client (React console / curl / automation)
+        │
+        ▼
 [Express HTTP Layer]
-   ├─ Middleware (helmet, cors, morgan, request-id)
-   ├─ Routers
-   │   ├─ /v1/keys     → Key lifecycle controller
-   │   ├─ /v1/crypto   → Cryptographic operations
-   │   ├─ /v1/grants   → RBAC grants management
-   │   ├─ /v1/audit    → Audit log retrieval & integrity check
-   │   └─ /v1/healthz  → Operational ping
-   └─ Error Handling
+  ├─ middleware: helmet, cors, morgan, JSON body limit, request-id injector
+  ├─ routers:
+  │    • /v1/keys     (key lifecycle)
+  │    • /v1/crypto   (encrypt/decrypt/sign/verify)
+  │    • /v1/grants   (RBAC management)
+  │    • /v1/audit    (log tail + verify)
+  │    • /v1/ops      (operational metrics)
+  │    • /v1/healthz  (ping)
+  └─ error handler → JSON payloads
 
-[Services Layer]
-   ├─ KeyService         → Persisted key metadata, rotations, state transitions
-   ├─ CryptoService      → AEAD encryption/decryption, RSA encrypt/sign/verify
-   ├─ EnvelopeService    → Wrap/unwrap materials via AWS KMS or local AES MK
-   ├─ GrantService       → Grant lookup & enforcement
-   ├─ AuditService       → Hash-chained logging & verification
-   ├─ StorageService     → MySQL data access layer (keys, versions, grants, audit)
-   └─ Scheduler (node-cron) → Hourly rotation job
+[Service Layer]
+  ├─ KeyService        (metadata + versions)
+  ├─ CryptoService     (runtime crypto, unwrap → operate → wrap)
+  ├─ EnvelopeService   (AWS KMS or local AES wrapper)
+  ├─ GrantService      (authorization decisions)
+  ├─ AuditService      (hash chain + compatibility)
+  ├─ OpsService        (metrics/rotation insights)
+  └─ Scheduler         (node-cron rotation job)
 
-[Utilities]
-   ├─ crypto.ts          → Primitive wrappers around Node crypto
-   ├─ http.ts            → Request-id injection & actor extraction
-   └─ asyncHandler.ts    → Promise-aware route wrapper
-```
+[Storage Layer]
+  └─ StorageService (mysql2/promise) handling `keys`, `key_versions`, `grants`, `audit_logs`
 
-## 3. Module Details
+Utilities like `asyncHandler`, `crypto.ts`, and `http.ts` keep the surface tidy.
 
-### 3.1 HTTP Composition (`src/app.ts`)
-- Instantiates core services with `config.masterKey` and database-backed storage derived from `.env` settings.
-- Applies security middleware (`helmet`, JSON body limit, `cors`) and structured logging via `morgan`.
-- Mounts routers under `/v1` namespace.
-- Registers global error handler returning JSON payload.
+---
+
+## 3. Module deep dive
+
+### 3.1 App bootstrap (`src/app.ts`)
+- Loads config (derived from `.env`), wires up services, starts the rotation scheduler.
+- Attaches middleware and mounts routers under `/v1/...`.
+- Centralised error handler logs the stack and returns JSON `{ error }`.
 
 ### 3.2 Configuration (`src/config.ts`)
-- Derives 32-byte master key hash from `KMS_MASTER_KEY` (required for deterministic local operation).
-- Flags AWS KMS usage via `KMS_USE_AWS` and `KMS_AWS_KEY_ID`.
-- Controls default grace period (`KMS_GRACE_DAYS`).
-- Exposes MySQL connection settings (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_POOL_MAX`).
+- Derives a deterministic 32-byte master key from `KMS_MASTER_KEY`.
+- Reads AWS KMS toggles (`KMS_USE_AWS`, `KMS_AWS_KEY_ID`) and default grace period (`KMS_GRACE_DAYS`).
+- Exposes MySQL connection parameters.
 
-### 3.3 Storage Layer (`StorageService`)
-- Built on top of `mysql2/promise` connection pool configured via `.env`.
-- Bootstraps schema (`keys`, `key_versions`, `grants`, `audit_logs`) during startup in `initDatabase`.
-- Provides targeted CRUD helpers (insert/update/list/find) consumed by higher-level services.
-- Serializes structured fields (`metadata`, `wrappedMaterial`, `allowedOps`, `conditions`, `details`) as JSON columns.
+### 3.3 StorageService
+- Owns table creation (idempotent `CREATE TABLE IF NOT EXISTS`).
+- Presents domain-friendly helpers: `insertKey`, `listVersionsForKey`, `upsertGrant`, `insertAuditRecord`, metrics queries, etc.
+- Serialises `metadata`, `wrappedMaterial`, `allowedOps`, `conditions`, `details` to JSON columns.
+- Adds analytics utilities:
+  - `countKeysByState`
+  - `countKeyVersions`
+  - `findRotationCandidates` (last rotation timestamp per key)
+  - `countAuditActionsSince`
+  - `getLastAuditVerification`
 
-### 3.4 EnvelopeService (AWS KMS Integration)
-- If `KMS_USE_AWS=true`, constructs a default `KMSClient` using environment credentials.
-- `wrapSecret()` issues `EncryptCommand` with `EncryptionContext` containing `keyId`, `version`, and `type`.
-- `unwrapSecret()` uses `DecryptCommand`, preserving context and optional `KeyId`.
-- Local fallback uses `crypto.createCipheriv` AES-256-GCM with derived master key.
-- Returned `EnvelopeCiphertext` tracks algorithm (`AWS-KMS` or `AES-256-GCM`) and metadata for auditing.
+### 3.4 EnvelopeService
+- If AWS is enabled, uses `@aws-sdk/client-kms` with encryption context (`keyId`, `version`, `type`).
+- Local mode: AES-256-GCM with master key derived in config; includes IV + auth tag in the envelope.
+- Public API: `wrapSecret` / `unwrapSecret`, returning an `EnvelopeCiphertext` that notes the algorithm and metadata.
 
 ### 3.5 KeyService
-- **Create**: Generates material (`generateKeyMaterial`), wraps via envelope, persists metadata & version record.
-- **Rotate**: Issues new version, disables previous active version with computed grace `notAfter`, updates `currentVersion`.
-- **State transitions**: `setVersionState` toggles to `DISABLED` or `REVOKED`, optionally disabling logical key when current version revoked.
-- **Lookup**: Provides `getActiveVersion`, `findVersion`, and `listDueForRotation` (timestamp-based with `rotationPeriodDays`).
-- **Validation**: Enforces unique names, ensures only enabled keys rotate.
+- **Create** – Validates name uniqueness, generates key material via `generateKeyMaterial`, wraps it, persists `KeyRecord` + `KeyVersionRecord`, and returns the aggregate.
+- **Rotate** – Generates new material, disables the previous version (setting `notAfter` if missing), persists a new version, updates the key’s `currentVersion`.
+- **State management** – `setVersionState` toggles versions to `DISABLED` or `REVOKED`, disabling the parent key if you revoke the active version.
+- **Search helpers** – `getKey`, `listKeys`, `findVersion`, `listVersionsForKey`.
 
 ### 3.6 CryptoService
-- **Encrypt**: Uses active version; AES keys call `encryptWithAesGcm` with JSON AAD (keyId, version, plus caller-supplied fields). RSA keys leverage OAEP.
-- **Decrypt**: Accepts explicit version or defaults to current; ensures state not `REVOKED` and grace window valid for `DISABLED`.
-- **Sign / Verify**: RSA SHA-256 with PKCS#1 padding; ensures version has public key.
-- Responses include version metadata to aid consumers.
+- Chooses the right algorithm based on the key type.
+- For AES keys, uses AES-GCM with additional data: `{ keyId, version, ... }`.
+- For RSA keys:
+  - `encrypt` uses OAEP with SHA-256.
+  - `sign` / `verify` uses PKCS#1 v1.5 with SHA-256.
+- Enforces state (no encrypt with `REVOKED`, enforce grace windows when decrypting).
 
 ### 3.7 GrantService
-- Stores per-principal grants in MySQL via `StorageService` helpers.
-- `ensureAuthorized` enforces RBAC: `admin` bypass, `auditor` read-only, `app` must match grant by keyId or wildcard.
-- Integrates with routers for runtime authorization before service calls.
+- Reads all grants for a principal and checks if any match the requested key (`*` wildcard allowed) and operation.
+- Short-circuits for `admin` (full access) and `auditor` (read-only).
+- `upsertByPrincipal` handles both inserts and updates to keep clients simple.
 
 ### 3.8 AuditService
-- Appends `AuditRecord` with `prev_hash`/`hash` chain using SHA-256 of record payload + previous hash.
-- Persists each record via `StorageService.insertAuditRecord`, reading the last hash to maintain continuity.
-- `verifyChain` reloads the ordered log from MySQL and recomputes the chain end-to-end.
-- All router interactions log both success and failure states with captured error messages.
+- Builds a SHA-256 hash over a canonicalised payload (stable JSON ordering, timestamps rounded to seconds) with the previous hash as prefix.
+- Stores records via `StorageService`.
+- `verifyChain` recomputes expected hashes, honours legacy formats for older rows, and collects IDs it had to treat as legacy.
+- Links every API path to `AuditService.record`, logging both successes and failures with contextual details.
 
-### 3.9 Scheduler
-- Cron expression `0 * * * *` checks for keys due for rotation.
-- For each due key, invokes `rotateKey` and logs result as `scheduler` actor.
-- Failures recorded with `status: FAILURE` for observability.
+### 3.9 OpsService
+- Pulls live metrics using `StorageService` helpers: key counts, rotation candidates (including days since last rotation), audit verification status, and usage tallies (encrypt/decrypt/rotate counts over the last 24h/30d).
+- Powers the dashboard and `/v1/ops/metrics`.
 
-### 3.10 Error Handling & Logging
-- Route handlers wrap service calls in `try/catch`, mapping domain errors to `400/403/404` as appropriate.
-- Uncaught exceptions bubble to Express error middleware, returning `500` with sanitized message.
-- `morgan` writes structured access logs.
+### 3.10 Scheduler
+- Cron expression `0 * * * *` (top of every hour).
+- Fetches keys due for rotation (using `rotationPeriodDays`), rotates them, and records audit entries tagged with the scheduler actor.
+- Failures surface in the audit trail with `status: FAILURE`.
 
-## 4. Data Model
+---
 
-| Entity              | Fields (subset)                                                                                           | Notes |
-|---------------------|------------------------------------------------------------------------------------------------------------|-------|
-| `KeyRecord`         | `id`, `name`, `type`, `purpose`, `state`, `rotationPeriodDays`, `gracePeriodDays`, `currentVersion`        | Logical key metadata |
-| `KeyVersionRecord`  | `id`, `keyId`, `version`, `state`, `wrappedMaterial`, `publicKeyPem`, `notAfter`, `gracePeriodDays`        | Envelope-wrapped material |
-| `EnvelopeCiphertext`| `algorithm`, `ciphertext`, optional `iv`, `authTag`, `encryptionContext`, `metadata`                        | Allows AWS/local distinction |
-| `GrantRecord`       | `principal`, `role`, `keyId` (`*` wildcard), `allowedOps`, `conditions`                                     | Conditions reserved for future policies |
-| `AuditRecord`       | `actor`, `role`, `action`, `status`, `requestId`, `prevHash`, `hash`, `details`                             | Tamper-evident chain |
+## 4. Data model cheat sheet
 
-All metadata persists in MySQL tables; production deployments can swap the driver for other relational databases or deploy managed MySQL with backups.
+| Entity | Key fields | Purpose |
+| --- | --- | --- |
+| `keys` | `id`, `name`, `type`, `purpose`, `state`, `rotation_period_days`, `grace_period_days`, `current_version`, `metadata` | Logical key metadata + owner tags |
+| `key_versions` | `id`, `key_id`, `version`, `state`, `wrapped_material`, `public_key_pem`, `not_before`, `not_after`, `grace_period_days` | Versioned wrapped material |
+| `grants` | `id`, `principal`, `role`, `key_id`, `allowed_ops`, `conditions` | RBAC rules, wildcard allowed |
+| `audit_logs` | `id`, `timestamp`, `actor`, `role`, `action`, `status`, `request_id`, `details`, `prev_hash`, `hash` | Tamper-evident log |
 
-## 5. Request Flows
+JSON columns keep metadata flexible for future expansions.
 
-### 5.1 Generate → Encrypt → Rotate → Revoke → Verify (core demo)
-1. **Generate Key** (`POST /v1/keys`, admin)
-   - Validate uniqueness → generate material → wrap via AWS/local → persist metadata/version → log `KEY_CREATE`.
-2. **Encrypt** (`POST /v1/crypto/encrypt`, app)
-   - RBAC check → load active version → unwrap material (potential AWS decrypt call) → encrypt payload → log `ENCRYPT`.
-3. **Rotate** (`POST /v1/keys/:id/rotate`, admin)
-   - Authorization → generate new material → disable previous version (grace window) → set new current version → log `KEY_ROTATE`.
-4. **Revoke** (`POST /v1/keys/:id/versions/:v/revoke`, admin)
-   - Authorization → mark version `REVOKED`, update logical key state if required → log `KEY_REVOKE`.
-5. **Verify Logs** (`POST /v1/audit/verify`, auditor)
-   - Recompute hash chain → log `AUDIT_VERIFY` with success/failure verdict.
+---
 
-### 5.2 Voice-Based Financial Scam Detector Integration
-- Detector microservice requests encryption of extracted voice embeddings using dedicated AES key via `/v1/crypto/encrypt` (principal `scam-detector` with app role).
-- Signed model inference results leverage RSA key for non-repudiation via `/v1/crypto/sign`.
-- Rotations scheduled to maintain key hygiene and minimize compromise window; detector obtains new versions transparently via API.
-- Audit trail provides forensic evidence for voice transaction analyses.
+## 5. Typical request flow
 
-## 6. Security Considerations
-- All key material stored encrypted at rest under MK or AWS KMS; plaintext only in-process.
-- Adds AAD containing `keyId`/`version` to AES-GCM operations to mitigate misuse.
-- Request-level RBAC prevents unauthorized operations; future extension to evaluate `conditions` (IP, time windows).
-- Encourages TLS termination upstream (service assumes HTTPS fronting proxy).
-- Audit chain defends against log tampering; recommend periodic anchoring to immutable storage.
-- Environment secrets loaded via dotenv; ensure `.env` excluded from VCS.
-- Scheduler operates under `admin` role to maintain consistent audit semantics.
+1. **Client hits `/v1/keys`** → Router extracts actor headers (`x-principal`, `x-role`), checks grants (`GrantService.ensureAuthorized`), delegates to `KeyService.createKey`, logs via `AuditService.record`, and responds with the new key/versions.
+2. **App encrypts data** → `/v1/crypto/encrypt` verifies permissions, loads current version, unwraps secret, encrypts payload, returns ciphertext + version metadata, and logs `ENCRYPT`.
+3. **Scheduler rotates stale keys** → Cron job lists candidates, calls `KeyService.rotateKey`, emits `KEY_ROTATE` audit entries (success or failure).
+4. **Auditor verifies logs** → `/v1/audit/verify` recomputes the hash chain end-to-end, logs `AUDIT_VERIFY` with `ok` flag, and the UI highlights the result.
+5. **Operators query `/v1/ops/metrics`** → `OpsService` returns dashboards metrics (key states, rotation alerts, usage, last audit verification).
 
-## 7. Extensibility Notes
-- Swap the MySQL driver for another SQL/relational backend by reimplementing `StorageService` with the same interface (e.g., PostgreSQL using `pg`).
-- Introduce additional key types (e.g., Ed25519) by extending `KeyType` union and `generateKeyMaterial`/`CryptoService` branches.
-- Add background job to auto-revoke versions after grace expiration.
-- Extend `GrantService` to evaluate `conditions` for contextual ABAC enforcement.
-- Provide gRPC or GraphQL adapters reusing services.
+---
 
-## 8. Deployment & Operations
-- Build with `npm run build` (TypeScript → ESM). `npm start` executes compiled `dist/server.js`.
-- Configure AWS credentials via standard environment (`AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, etc.) when `KMS_USE_AWS=true`.
-- Monitor logs for `scheduler-error` audit entries to detect rotation failures.
-- Suggested tests: unit tests for crypto helpers, integration tests for lifecycle workflow, security tests asserting revoke behavior.
+## 6. Security posture
+
+- Envelope encryption ensures wrapped secret material is never stored in plaintext.
+- AES-GCM includes `keyId`/`version` as Additional Authenticated Data to prevent ciphertext replay across keys.
+- Grants enforce least privilege; only principals with `create` can mint new keys, and new keys auto-grant manage permissions to the creator.
+- Audit chain verifies integrity locally; for production we recommend anchoring head hashes to immutable storage (S3 with versioning, blockchain, etc.).
+- Environment variables supply secrets; `.env` remains untracked. Run behind TLS and layer real authentication (mTLS, OIDC) before going live.
+- Scheduler runs under an admin persona so all automated actions have consistent audit semantics.
+
+---
+
+## 7. Extending the system
+
+- Swap MySQL for PostgreSQL by reimplementing `StorageService` with the same interface.
+- Add new key types by extending `KeyType`, `generateKeyMaterial`, and `CryptoService`.
+- Build more ops signals (e.g., auto-revoke when grace window expires) or send metrics to Prometheus.
+- Integrate approval workflows (dual control) by enhancing `GrantService` and the routers.
+- Expose gRPC or GraphQL adapters using the same service layer.
+- Anchor audit hashes externally (blockchain, notary service) for stronger compliance stories.
+
+---
+
+## 8. Deploying & operating
+
+- `npm run build` compiles the TypeScript backend to ESM (`dist/`), and `npm start` runs `dist/server.js`.
+- Provision the database ahead of time or let `StorageService` bootstrap tables on the first run.
+- Monitor logs for `AUDIT_VERIFY` failures or scheduler errors; hook `/v1/ops/metrics` into dashboards.
+- Back up the MySQL instance regularly (point-in-time recovery recommended).
+- Rotate the KMS master key periodically and re-wrap key material as part of a maintenance window.
+
+With this mental model in place you can comfortably add features, tighten security, or port the design to a different stack.***
