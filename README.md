@@ -1,6 +1,6 @@
-# Mini KMS — teachable key management, end to end
+# Mini KMS — key management, end to end
 
-Mini KMS is a hands-on playground for everything that happens to a cryptographic key after it is born. You can mint keys, wrap them, hand them to applications, rotate them on schedule, revoke them when things go wrong, and prove nobody tampered with the audit trail along the way. The project couples a TypeScript/Express API with a React console so you can demo or learn the full lifecycle in minutes instead of reading a 40‑page spec.
+Mini KMS is a hands-on playground for everything that happens to a cryptographic key after it is born. You can mint keys, wrap them, hand them to applications, rotate them on schedule, revoke them when things go wrong, and prove nobody tampered with the audit trail along the way.
 
 ---
 
@@ -161,5 +161,5 @@ The rotation scheduler runs hourly by default (`backend/src/services/scheduler.t
 - Add dual control / approval workflows for destructive actions.
 - Ship Terraform/Pulumi providers and language SDKs for Infrastructure-as-Code integration.
 - Stream audit anchors to immutable storage or a blockchain for independent verification.
-- Expand the console with charts, notifications.
+- Expand the console with analytics, charts, notifications.
 
