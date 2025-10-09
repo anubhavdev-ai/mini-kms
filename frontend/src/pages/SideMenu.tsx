@@ -1,4 +1,10 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, Route, Routes } from 'react-router-dom';
+import { GoHome } from "react-icons/go";
+import { LiaKeySolid } from "react-icons/lia";
+import { TbSettingsCog } from "react-icons/tb";
+import { TbChecklist } from "react-icons/tb";
+import { SlPeople } from "react-icons/sl";
+// import { NavLink } from 'react-router-dom';
 import { SessionUser } from '../api/client';
 
 interface SideMenuProps {
@@ -15,8 +21,8 @@ export default function SideMenu({ user, onNavigate, onLogout }: SideMenuProps) 
   };
 
   return (
-    <div className="w-full h-full flex flex-col gap-4 justify-start items-start bg-[#0f172a] p-6">
-      <div className="font-bold text-2xl">Mini KMS</div>
+    <div className="w-full h-full flex flex-col gap-4 justify-start items-start bg-[#1b1b1b] p-6">
+      <div className="font-bold text-2xl">Keyforge</div>
       <div style={{ fontSize: 14, color: 'rgba(226,232,240,0.7)' }}>
         {user.email}
       </div>
